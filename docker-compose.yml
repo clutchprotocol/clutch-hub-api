@@ -1,4 +1,5 @@
-version: '3.8'
+# Clutch Hub API - Development (API only)
+# For full stack (node + API), use https://github.com/clutchprotocol/clutch-deploy
 
 services:
   clutch-hub-api:
@@ -19,34 +20,5 @@ services:
       timeout: 10s
       retries: 3
       start_period: 30s
-    networks:
-      - clutch-network
     volumes:
-      # Mount config directory for easy configuration updates
       - ./config:/app/config:ro
-
-  # Optional: Add a reverse proxy for production-like setup
-  nginx:
-    image: nginx:alpine
-    container_name: clutch-nginx-proxy
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./nginx.conf:/etc/nginx/nginx.conf:ro
-    depends_on:
-      - clutch-hub-api
-    networks:
-      - clutch-network
-    profiles:
-      - proxy
-    restart: unless-stopped
-
-networks:
-  clutch-network:
-    driver: bridge
-
-# Optional: Add volumes for persistent data if needed
-volumes:
-  clutch-data:
-    driver: local

@@ -90,34 +90,35 @@ Logs in a user.
 
 ## 🐳 Docker Setup (Recommended)
 
-### Quick Start with Docker
+### Full Stack (Node + API) - Use clutch-deploy
+For the complete Clutch stack (node + API + monitoring), use the [clutch-deploy](https://github.com/clutchprotocol/clutch-deploy) repository:
 ```bash
-# Clone the repository
-git clone https://github.com/MehranMazhar/clutch-hub-api.git
-cd clutch-hub-api
+git clone https://github.com/clutchprotocol/clutch-deploy.git
+cd clutch-deploy
+cp .env.example .env
+docker-compose up -d
+```
 
-# Copy environment configuration
+### API Only - Development
+```bash
+# Copy environment and start (builds from source)
 cp env.example .env
-
-# Build and start with Docker Compose
 docker-compose up --build
 ```
 
-The API will be available at `http://localhost:3000`
-
-### Docker Commands
+Or run a single container:
 ```bash
-# Build the image
 docker build -t clutch-hub-api .
-
-# Run the container
 docker run -p 3000:3000 --env-file .env clutch-hub-api
-
-# Using Docker Compose
-docker-compose up -d          # Start in background
-docker-compose logs -f        # View logs
-docker-compose down           # Stop services
 ```
+
+Pre-built image:
+```bash
+docker pull 9194010019/clutch-hub-api:latest
+docker run -p 3000:3000 --env-file .env 9194010019/clutch-hub-api:latest
+```
+
+The API will be available at `http://localhost:3000`
 
 ### Development with Docker
 ```powershell
@@ -131,11 +132,8 @@ docker-compose down           # Stop services
 
 ### Pre-built Docker Images
 ```bash
-# Pull from Docker Hub (when available)
-docker pull <DOCKERHUB_USERNAME>/clutch-hub-api:latest
-
-# Run pre-built image
-docker run -p 3000:3000 --env-file .env <DOCKERHUB_USERNAME>/clutch-hub-api:latest
+docker pull 9194010019/clutch-hub-api:latest
+docker run -p 3000:3000 --env-file .env 9194010019/clutch-hub-api:latest
 ```
 
 ## 🦀 Local Rust Setup
