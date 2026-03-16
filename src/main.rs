@@ -14,7 +14,7 @@ struct Args {
     env_positional: Option<String>,
 }
 
-#[tokio::main]
+#[actix_web::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();
     let env_owned = args
