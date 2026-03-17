@@ -162,4 +162,27 @@ impl ClutchNodeClient {
             }
         }
     }
+
+    /// Gets the current balance for the given address.
+    pub async fn get_account_balance(&self, address: &str) -> u64 {
+        match self
+            .send_request("get_account_balance", json!({ "address": address }))
+            .await
+        {
+            Ok(result) => match result.get("balance").and_then(|n| n.as_u64()) {
+                Some(balance) => {
+                    info!("Retrieved balance {} for address {}", balance, address);
+                    balance
+                }
+                None => {
+                    error!("Failed to parse balance value from response: {:?}", result);
+                    0
+                }
+            },
+            Err(e) => {
+                error!("Failed to get balance for address {}: {}", address, e);
+                0
+            }
+        }
+    }
 }
