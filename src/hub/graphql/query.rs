@@ -2,9 +2,10 @@ use std::sync::Arc;
 
 use crate::hub::{
     clutch_node_client::ClutchNodeClient,
-    graphql::types::{get_auth_user, AuthGuard, RideRequest},
+    graphql::types::{get_auth_user, AuthGuard, AvailableRideRequest, MapBoundsInput, RideRequest},
 };
 use async_graphql::{Context, Object};
+use tracing::error;
 
 #[derive(Default)]
 pub struct Query;
@@ -29,6 +30,43 @@ impl Query {
             pickup_location: "0".to_string(),
             dropoff_location: "0".to_string(),
         })
+    }
+
+    /// Lists available ride requests (not yet accepted). Optionally filter by map bounds.
+    pub async fn list_ride_requests(
+        &self,
+        ctx: &Context<'_>,
+        bounds: Option<MapBoundsInput>,
+    ) -> async_graphql::Result<Vec<AvailableRideRequest>> {
+        let client = ctx
+            .data::<Arc<ClutchNodeClient>>()
+            .map_err(|_| async_graphql::Error::new("Node client not found"))?
+            .clone();
+
+        let params = bounds.map(|b| {
+            serde_json::json!({
+                "minLat": b.min_lat,
+                "maxLat": b.max_lat,
+                "minLng": b.min_lng,
+                "maxLng": b.max_lng
+            })
+        });
+
+        let raw_list = client
+            .list_ride_requests(params)
+            .await
+            .map_err(|e| async_graphql::Error::new(e))?;
+
+        let mut result = Vec::with_capacity(raw_list.len());
+        for item in raw_list {
+            match serde_json::from_value::<AvailableRideRequest>(item) {
+                Ok(req) => result.push(req),
+                Err(e) => {
+                    error!("Failed to parse ride request from node: {}", e);
+                }
+            }
+        }
+        Ok(result)
     }
 
     #[graphql(guard = "AuthGuard")]

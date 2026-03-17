@@ -1,10 +1,37 @@
-use async_graphql::{SimpleObject, Guard, Context, Result, Error};
+use async_graphql::{SimpleObject, Guard, Context, Result, Error, InputObject};
 use serde::{Deserialize, Serialize};
 
 #[derive(SimpleObject, Serialize, Deserialize)]
 pub struct RideRequest {
     pub pickup_location: String,
     pub dropoff_location: String,
+}
+
+/// Geographic coordinates (latitude, longitude).
+#[derive(SimpleObject, Serialize, Deserialize, Clone)]
+pub struct Coordinates {
+    pub latitude: f64,
+    pub longitude: f64,
+}
+
+/// A ride request available for drivers to accept (no acceptance yet).
+#[derive(SimpleObject, Serialize, Deserialize)]
+pub struct AvailableRideRequest {
+    pub tx_hash: String,
+    pub pickup_location: Coordinates,
+    pub dropoff_location: Coordinates,
+    pub fare: u64,
+    pub passenger_address: String,
+}
+
+/// Optional map viewport bounds for filtering ride requests by pickup location.
+#[derive(InputObject, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MapBoundsInput {
+    pub min_lat: f64,
+    pub max_lat: f64,
+    pub min_lng: f64,
+    pub max_lng: f64,
 }
 
 #[derive(SimpleObject)]

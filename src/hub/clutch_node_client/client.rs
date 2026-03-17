@@ -185,4 +185,23 @@ impl ClutchNodeClient {
             }
         }
     }
+
+    /// Lists available ride requests from the node, optionally filtered by map bounds.
+    /// Pass None for bounds to get all available ride requests.
+    pub async fn list_ride_requests(
+        &self,
+        bounds: Option<serde_json::Value>,
+    ) -> Result<Vec<serde_json::Value>, String> {
+        let params = match bounds {
+            Some(b) if b.is_object() && !b.as_object().unwrap().is_empty() => b,
+            _ => serde_json::Value::Object(serde_json::Map::new()),
+        };
+
+        let result = self.send_request("list_ride_requests", params).await?;
+
+        match result {
+            serde_json::Value::Array(arr) => Ok(arr),
+            _ => Err("Expected array of ride requests in response".to_string()),
+        }
+    }
 }
