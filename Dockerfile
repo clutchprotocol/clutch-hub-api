@@ -23,9 +23,12 @@ WORKDIR /usr/src/clutch-hub-api
 COPY Cargo.toml Cargo.lock ./
 
 # Create dummy source and build dependencies for better caching
+# Then delete the dummy binary artifacts so the real build creates fresh binary
 RUN mkdir src && \
     echo "fn main() {}" > src/main.rs && \
     cargo build --release && \
+    rm -f target/release/clutch-hub-api target/release/clutch-hub-api.d && \
+    rm -rf target/release/deps/clutch_hub_api* target/release/.fingerprint/clutch-hub-api-* && \
     rm -rf src
 
 # Copy actual source code
