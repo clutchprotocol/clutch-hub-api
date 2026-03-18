@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use crate::hub::{
     clutch_node_client::ClutchNodeClient,
-    graphql::types::{get_auth_user, AuthGuard, AvailableRideRequest, MapBoundsInput, RideRequest},
+    graphql::types::{get_auth_user, AuthGuard, AvailableRideRequest, AvailableRideOffer, MapBoundsInput, RideRequest},
 };
 use async_graphql::{Context, Object};
 use tracing::error;
@@ -63,6 +63,34 @@ impl Query {
                 Ok(req) => result.push(req),
                 Err(e) => {
                     error!("Failed to parse ride request from node: {}", e);
+                }
+            }
+        }
+        Ok(result)
+    }
+
+    /// Lists ride offers for a specific ride request.
+    pub async fn list_ride_offers(
+        &self,
+        ctx: &Context<'_>,
+        ride_request_tx_hash: String,
+    ) -> async_graphql::Result<Vec<AvailableRideOffer>> {
+        let client = ctx
+            .data::<Arc<ClutchNodeClient>>()
+            .map_err(|_| async_graphql::Error::new("Node client not found"))?
+            .clone();
+
+        let raw_list = client
+            .list_ride_offers(&ride_request_tx_hash)
+            .await
+            .map_err(|e| async_graphql::Error::new(e))?;
+
+        let mut result = Vec::with_capacity(raw_list.len());
+        for item in raw_list {
+            match serde_json::from_value::<AvailableRideOffer>(item) {
+                Ok(offer) => result.push(offer),
+                Err(e) => {
+                    error!("Failed to parse ride offer from node: {}", e);
                 }
             }
         }

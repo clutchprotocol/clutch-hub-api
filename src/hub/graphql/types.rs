@@ -24,6 +24,14 @@ pub struct AvailableRideRequest {
     pub passenger_address: String,
 }
 
+/// A ride offer made by a driver for a specific ride request.
+#[derive(SimpleObject, Serialize, Deserialize)]
+pub struct AvailableRideOffer {
+    pub tx_hash: String,
+    pub ride_request_tx_hash: String,
+    pub fare: u64,
+    pub driver_address: String,
+}
 /// Optional map viewport bounds for filtering ride requests by pickup location.
 #[derive(InputObject, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]

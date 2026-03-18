@@ -204,4 +204,21 @@ impl ClutchNodeClient {
             _ => Err("Expected array of ride requests in response".to_string()),
         }
     }
+
+    /// Lists ride offers for a specific ride request.
+    pub async fn list_ride_offers(
+        &self,
+        ride_request_tx_hash: &str,
+    ) -> Result<Vec<serde_json::Value>, String> {
+        let params = serde_json::json!({
+            "ride_request_tx_hash": ride_request_tx_hash
+        });
+
+        let result = self.send_request("list_ride_offers", params).await?;
+
+        match result {
+            serde_json::Value::Array(arr) => Ok(arr),
+            _ => Err("Expected array of ride offers in response".to_string()),
+        }
+    }
 }
