@@ -167,6 +167,48 @@ impl Mutation {
         Ok(Json(params))
     }
 
+    /// Passenger pays the driver in one or more portions (RidePay). `fare` is this payment amount (CLT).
+    #[graphql(guard = "AuthGuard")]
+    pub async fn create_unsigned_ride_pay(
+        &self,
+        ctx: &Context<'_>,
+        ride_acceptance_transaction_hash: String,
+        fare: i32,
+    ) -> async_graphql::Result<Json<serde_json::Value>> {
+        let auth_user = get_auth_user(ctx)
+            .ok_or_else(|| async_graphql::Error::new("User not authenticated"))?;
+
+        if fare <= 0 {
+            return Err(async_graphql::Error::new("fare must be positive"));
+        }
+
+        info!(
+            "Processing ride pay for passenger {} on acceptance {}",
+            auth_user.public_key, ride_acceptance_transaction_hash
+        );
+
+        let client = ctx
+            .data::<Arc<ClutchNodeClient>>()
+            .map_err(|_| async_graphql::Error::new("WebSocket manager not found"))?
+            .clone();
+
+        let nonce = client.get_next_nonce(&auth_user.public_key).await;
+
+        let params = json!({
+            "from": auth_user.public_key,
+            "nonce": nonce,
+            "data": {
+                "function_call_type": "RidePay",
+                "arguments": {
+                    "ride_acceptance_transaction_hash": ride_acceptance_transaction_hash,
+                    "fare": fare
+                }
+            }
+        });
+
+        Ok(Json(params))
+    }
+
     #[graphql(guard = "AuthGuard")]
     pub async fn send_raw_transaction(
         &self,

@@ -42,6 +42,7 @@ pub struct AvailableActiveTrip {
     pub pickup_location: Coordinates,
     pub dropoff_location: Coordinates,
     pub fare: u64,
+    pub fare_paid: u64,
     pub driver_address: String,
     pub passenger_address: String,
 }
