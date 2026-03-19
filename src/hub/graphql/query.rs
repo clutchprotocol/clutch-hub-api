@@ -131,6 +131,40 @@ impl Query {
         Ok(result)
     }
 
+    /// Lists completed trips (ride accepted, full fare paid, not cancelled). Optional driver/passenger filter.
+    pub async fn list_completed_trips(
+        &self,
+        ctx: &Context<'_>,
+        driver_address: Option<String>,
+        passenger_address: Option<String>,
+    ) -> async_graphql::Result<Vec<AvailableActiveTrip>> {
+        let client = ctx
+            .data::<Arc<ClutchNodeClient>>()
+            .map_err(|_| async_graphql::Error::new("Node client not found"))?
+            .clone();
+
+        let params = serde_json::json!({
+            "driver_address": driver_address,
+            "passenger_address": passenger_address
+        });
+
+        let raw_list = client
+            .list_completed_trips(params)
+            .await
+            .map_err(|e| async_graphql::Error::new(e))?;
+
+        let mut result = Vec::with_capacity(raw_list.len());
+        for item in raw_list {
+            match serde_json::from_value::<AvailableActiveTrip>(item) {
+                Ok(trip) => result.push(trip),
+                Err(e) => {
+                    error!("Failed to parse completed trip from node: {}", e);
+                }
+            }
+        }
+        Ok(result)
+    }
+
     #[graphql(guard = "AuthGuard")]
     pub async fn account_balance(
         &self,

@@ -33,7 +33,7 @@ pub struct AvailableRideOffer {
     pub driver_address: String,
 }
 
-/// An active trip (RideAcceptance with no fare paid, not cancelled).
+/// An active or completed trip listing (same shape: `fare_paid` vs `fare` distinguishes state on the node).
 #[derive(SimpleObject, Serialize, Deserialize)]
 pub struct AvailableActiveTrip {
     pub tx_hash: String,
