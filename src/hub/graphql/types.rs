@@ -32,6 +32,19 @@ pub struct AvailableRideOffer {
     pub fare: u64,
     pub driver_address: String,
 }
+
+/// An active trip (RideAcceptance with no fare paid, not cancelled).
+#[derive(SimpleObject, Serialize, Deserialize)]
+pub struct AvailableActiveTrip {
+    pub tx_hash: String,
+    pub ride_offer_tx_hash: String,
+    pub ride_request_tx_hash: String,
+    pub pickup_location: Coordinates,
+    pub dropoff_location: Coordinates,
+    pub fare: u64,
+    pub driver_address: String,
+    pub passenger_address: String,
+}
 /// Optional map viewport bounds for filtering ride requests by pickup location.
 #[derive(InputObject, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]

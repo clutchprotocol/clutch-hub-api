@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use crate::hub::{
     clutch_node_client::ClutchNodeClient,
-    graphql::types::{get_auth_user, AuthGuard, AvailableRideRequest, AvailableRideOffer, MapBoundsInput, RideRequest},
+    graphql::types::{get_auth_user, AuthGuard, AvailableActiveTrip, AvailableRideRequest, AvailableRideOffer, MapBoundsInput, RideRequest},
 };
 use async_graphql::{Context, Object};
 use tracing::error;
@@ -91,6 +91,40 @@ impl Query {
                 Ok(offer) => result.push(offer),
                 Err(e) => {
                     error!("Failed to parse ride offer from node: {}", e);
+                }
+            }
+        }
+        Ok(result)
+    }
+
+    /// Lists active trips (ride accepted, in progress). Optionally filter by driver or passenger address.
+    pub async fn list_active_trips(
+        &self,
+        ctx: &Context<'_>,
+        driver_address: Option<String>,
+        passenger_address: Option<String>,
+    ) -> async_graphql::Result<Vec<AvailableActiveTrip>> {
+        let client = ctx
+            .data::<Arc<ClutchNodeClient>>()
+            .map_err(|_| async_graphql::Error::new("Node client not found"))?
+            .clone();
+
+        let params = serde_json::json!({
+            "driver_address": driver_address,
+            "passenger_address": passenger_address
+        });
+
+        let raw_list = client
+            .list_active_trips(params)
+            .await
+            .map_err(|e| async_graphql::Error::new(e))?;
+
+        let mut result = Vec::with_capacity(raw_list.len());
+        for item in raw_list {
+            match serde_json::from_value::<AvailableActiveTrip>(item) {
+                Ok(trip) => result.push(trip),
+                Err(e) => {
+                    error!("Failed to parse active trip from node: {}", e);
                 }
             }
         }

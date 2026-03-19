@@ -221,4 +221,23 @@ impl ClutchNodeClient {
             _ => Err("Expected array of ride offers in response".to_string()),
         }
     }
+
+    /// Lists active trips (ride accepted, in progress). Optionally filter by driver_address and/or passenger_address.
+    pub async fn list_active_trips(
+        &self,
+        params: serde_json::Value,
+    ) -> Result<Vec<serde_json::Value>, String> {
+        let params_obj = if params.is_object() {
+            params
+        } else {
+            serde_json::json!({})
+        };
+
+        let result = self.send_request("list_active_trips", params_obj).await?;
+
+        match result {
+            serde_json::Value::Array(arr) => Ok(arr),
+            _ => Err("Expected array of active trips in response".to_string()),
+        }
+    }
 }
