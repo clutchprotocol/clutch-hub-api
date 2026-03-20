@@ -8,7 +8,10 @@ use super::types::{AvailableActiveTrip, AvailableRideOffer, AvailableRideRequest
 use async_graphql::{Context, Error, Result};
 use futures_util::stream::{self, Stream};
 
-const SNAPSHOT_INTERVAL_MS: u64 = 2000;
+/// Default delay between node polls for subscription snapshots (after the first immediate tick).
+const SNAPSHOT_INTERVAL_MS: u64 = 1000;
+/// Slightly faster polling for ride-offer lists (many UX-critical updates).
+const OFFERS_SNAPSHOT_INTERVAL_MS: u64 = 500;
 
 type RideRequestStream = Pin<Box<dyn Stream<Item = Result<Vec<AvailableRideRequest>>> + Send>>;
 type RideOfferStream = Pin<Box<dyn Stream<Item = Result<Vec<AvailableRideOffer>>> + Send>>;
@@ -73,7 +76,7 @@ impl Subscription {
             let hash = ride_request_tx_hash.clone();
             async move {
                 if n > 0 {
-                    tokio::time::sleep(Duration::from_millis(SNAPSHOT_INTERVAL_MS)).await;
+                    tokio::time::sleep(Duration::from_millis(OFFERS_SNAPSHOT_INTERVAL_MS)).await;
                 }
                 let res = lists::list_ride_offers_parsed(&client, &hash).await;
                 Some((res, n + 1))

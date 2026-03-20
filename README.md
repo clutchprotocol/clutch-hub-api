@@ -18,7 +18,7 @@ Clutch Hub API is a backend service designed to manage and provide data for the 
 - **WebSocket:** `GET /graphql/ws` — subscriptions using the [`graphql-transport-ws`](https://github.com/enisdenjo/graphql-ws/blob/master/PROTOCOL.md) protocol (e.g. [`graphql-ws`](https://github.com/enisdenjo/graphql-ws) on the client). Send `Sec-WebSocket-Protocol: graphql-transport-ws` (or `graphql-ws`).
 - **Optional auth:** include JWT in the WebSocket `connection_init` payload as `Authorization: "Bearer <token>"` (same semantics as the HTTP `Authorization` header). Public list subscriptions work without a token.
 
-Subscription fields (server polls the node every ~2s while active):
+Subscription fields (server polls the node while active: **~1s** between snapshots for requests/trips, **~0.5s** for `rideOffersUpdated`):
 
 - `rideRequestsUpdated(bounds: MapBoundsInput)`
 - `rideOffersUpdated(rideRequestTxHash: String!)`
