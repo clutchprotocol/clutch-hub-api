@@ -1,7 +1,7 @@
 use crate::hub::clutch_node_client::ClutchNodeClient;
 use crate::hub::configuration::AppConfig;
 use crate::hub::graphql::build_schema;
-use crate::hub::graphql::handler::graphql_handler;
+use crate::hub::graphql::handler::{graphql_handler, graphql_ws_handler};
 use actix_web::{web, App, HttpServer, HttpResponse, Result};
 use std::sync::Arc;
 use actix_cors::Cors;
@@ -37,6 +37,9 @@ pub async fn run_graphql_server(
             .app_data(web::Data::new(schema.clone()))
             .service(web::resource("/health").route(web::get().to(health_check)))
             .service(web::resource("/graphql").route(web::post().to(graphql_handler)))
+            .service(
+                web::resource("/graphql/ws").route(web::get().to(graphql_ws_handler)),
+            )
     })
     .bind(ws_addr)?
     .run()

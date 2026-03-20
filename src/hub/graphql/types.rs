@@ -47,7 +47,7 @@ pub struct AvailableActiveTrip {
     pub passenger_address: String,
 }
 /// Optional map viewport bounds for filtering ride requests by pickup location.
-#[derive(InputObject, Serialize, Deserialize)]
+#[derive(InputObject, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct MapBoundsInput {
     pub min_lat: f64,

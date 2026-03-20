@@ -2,10 +2,10 @@ use std::sync::Arc;
 
 use crate::hub::{
     clutch_node_client::ClutchNodeClient,
+    graphql::lists,
     graphql::types::{get_auth_user, AuthGuard, AvailableActiveTrip, AvailableRideRequest, AvailableRideOffer, MapBoundsInput, RideRequest},
 };
 use async_graphql::{Context, Object};
-use tracing::error;
 
 #[derive(Default)]
 pub struct Query;
@@ -43,30 +43,7 @@ impl Query {
             .map_err(|_| async_graphql::Error::new("Node client not found"))?
             .clone();
 
-        let params = bounds.map(|b| {
-            serde_json::json!({
-                "minLat": b.min_lat,
-                "maxLat": b.max_lat,
-                "minLng": b.min_lng,
-                "maxLng": b.max_lng
-            })
-        });
-
-        let raw_list = client
-            .list_ride_requests(params)
-            .await
-            .map_err(|e| async_graphql::Error::new(e))?;
-
-        let mut result = Vec::with_capacity(raw_list.len());
-        for item in raw_list {
-            match serde_json::from_value::<AvailableRideRequest>(item) {
-                Ok(req) => result.push(req),
-                Err(e) => {
-                    error!("Failed to parse ride request from node: {}", e);
-                }
-            }
-        }
-        Ok(result)
+        lists::list_ride_requests_parsed(&client, bounds.as_ref()).await
     }
 
     /// Lists ride offers for a specific ride request.
@@ -80,21 +57,7 @@ impl Query {
             .map_err(|_| async_graphql::Error::new("Node client not found"))?
             .clone();
 
-        let raw_list = client
-            .list_ride_offers(&ride_request_tx_hash)
-            .await
-            .map_err(|e| async_graphql::Error::new(e))?;
-
-        let mut result = Vec::with_capacity(raw_list.len());
-        for item in raw_list {
-            match serde_json::from_value::<AvailableRideOffer>(item) {
-                Ok(offer) => result.push(offer),
-                Err(e) => {
-                    error!("Failed to parse ride offer from node: {}", e);
-                }
-            }
-        }
-        Ok(result)
+        lists::list_ride_offers_parsed(&client, &ride_request_tx_hash).await
     }
 
     /// Lists active trips (ride accepted, in progress). Optionally filter by driver or passenger address.
@@ -109,26 +72,12 @@ impl Query {
             .map_err(|_| async_graphql::Error::new("Node client not found"))?
             .clone();
 
-        let params = serde_json::json!({
-            "driver_address": driver_address,
-            "passenger_address": passenger_address
-        });
-
-        let raw_list = client
-            .list_active_trips(params)
-            .await
-            .map_err(|e| async_graphql::Error::new(e))?;
-
-        let mut result = Vec::with_capacity(raw_list.len());
-        for item in raw_list {
-            match serde_json::from_value::<AvailableActiveTrip>(item) {
-                Ok(trip) => result.push(trip),
-                Err(e) => {
-                    error!("Failed to parse active trip from node: {}", e);
-                }
-            }
-        }
-        Ok(result)
+        lists::list_active_trips_parsed(
+            &client,
+            driver_address.as_deref(),
+            passenger_address.as_deref(),
+        )
+        .await
     }
 
     /// Lists completed trips (ride accepted, full fare paid, not cancelled). Optional driver/passenger filter.
@@ -143,26 +92,12 @@ impl Query {
             .map_err(|_| async_graphql::Error::new("Node client not found"))?
             .clone();
 
-        let params = serde_json::json!({
-            "driver_address": driver_address,
-            "passenger_address": passenger_address
-        });
-
-        let raw_list = client
-            .list_completed_trips(params)
-            .await
-            .map_err(|e| async_graphql::Error::new(e))?;
-
-        let mut result = Vec::with_capacity(raw_list.len());
-        for item in raw_list {
-            match serde_json::from_value::<AvailableActiveTrip>(item) {
-                Ok(trip) => result.push(trip),
-                Err(e) => {
-                    error!("Failed to parse completed trip from node: {}", e);
-                }
-            }
-        }
-        Ok(result)
+        lists::list_completed_trips_parsed(
+            &client,
+            driver_address.as_deref(),
+            passenger_address.as_deref(),
+        )
+        .await
     }
 
     #[graphql(guard = "AuthGuard")]
