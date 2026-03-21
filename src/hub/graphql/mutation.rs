@@ -209,6 +209,79 @@ impl Mutation {
         Ok(Json(params))
     }
 
+    /// Cancel an active ride. Either passenger or driver may cancel. Refunds unpaid fare to passenger.
+    /// Cannot cancel if full fare has already been paid.
+    #[graphql(guard = "AuthGuard")]
+    pub async fn create_unsigned_ride_cancel(
+        &self,
+        ctx: &Context<'_>,
+        ride_acceptance_transaction_hash: String,
+    ) -> async_graphql::Result<Json<serde_json::Value>> {
+        let auth_user = get_auth_user(ctx)
+            .ok_or_else(|| async_graphql::Error::new("User not authenticated"))?;
+
+        info!(
+            "Processing ride cancel for user {} on acceptance {}",
+            auth_user.public_key, ride_acceptance_transaction_hash
+        );
+
+        let client = ctx
+            .data::<Arc<ClutchNodeClient>>()
+            .map_err(|_| async_graphql::Error::new("WebSocket manager not found"))?
+            .clone();
+
+        let nonce = client.get_next_nonce(&auth_user.public_key).await;
+
+        let params = json!({
+            "from": auth_user.public_key,
+            "nonce": nonce,
+            "data": {
+                "function_call_type": "RideCancel",
+                "arguments": {
+                    "ride_acceptance_transaction_hash": ride_acceptance_transaction_hash
+                }
+            }
+        });
+
+        Ok(Json(params))
+    }
+
+    /// Cancel a pending ride request (before a driver accepts). Only the passenger who created the request can cancel.
+    #[graphql(guard = "AuthGuard")]
+    pub async fn create_unsigned_ride_request_cancel(
+        &self,
+        ctx: &Context<'_>,
+        ride_request_transaction_hash: String,
+    ) -> async_graphql::Result<Json<serde_json::Value>> {
+        let auth_user = get_auth_user(ctx)
+            .ok_or_else(|| async_graphql::Error::new("User not authenticated"))?;
+
+        info!(
+            "Processing ride request cancel for user {} on request {}",
+            auth_user.public_key, ride_request_transaction_hash
+        );
+
+        let client = ctx
+            .data::<Arc<ClutchNodeClient>>()
+            .map_err(|_| async_graphql::Error::new("WebSocket manager not found"))?
+            .clone();
+
+        let nonce = client.get_next_nonce(&auth_user.public_key).await;
+
+        let params = json!({
+            "from": auth_user.public_key,
+            "nonce": nonce,
+            "data": {
+                "function_call_type": "RideRequestCancel",
+                "arguments": {
+                    "ride_request_transaction_hash": ride_request_transaction_hash
+                }
+            }
+        });
+
+        Ok(Json(params))
+    }
+
     #[graphql(guard = "AuthGuard")]
     pub async fn send_raw_transaction(
         &self,
