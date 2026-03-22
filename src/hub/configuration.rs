@@ -3,6 +3,10 @@ use dotenv::dotenv;
 use serde::Deserialize;
 use tracing::info;
 
+fn default_faucet_amount() -> u64 {
+    1000
+}
+
 #[derive(Debug, Deserialize, Clone)]
 pub struct AppConfig {
     pub log_level: String,
@@ -13,6 +17,15 @@ pub struct AppConfig {
     pub ws_addr: String,
     pub jwt_secret: String,
     pub jwt_expiration_hours: u64,
+    /// When true and `faucet_private_key` is set, POST /faucet is enabled (test networks only).
+    #[serde(default)]
+    pub faucet_enabled: bool,
+    /// Hex-encoded secp256k1 private key (64 hex chars, optional 0x). Must hold CLT on-chain.
+    #[serde(default)]
+    pub faucet_private_key: String,
+    /// Amount of CLT to send per faucet request.
+    #[serde(default = "default_faucet_amount")]
+    pub faucet_amount_clt: u64,
 }
 
 impl AppConfig {

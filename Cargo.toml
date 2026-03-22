@@ -27,6 +27,7 @@ prometheus-client = "0.22.3"
 lazy_static = "1.5.0"
 uuid = { version = "1.10.0", features = ["v4"] }
 hex = "0.4.3"
+rlp = "0.5.2"
 rand = "0.8.5"
 secp256k1 = { version = "0.29.1", features = ["recovery", "rand"] }
 sha3 = "0.10.8"

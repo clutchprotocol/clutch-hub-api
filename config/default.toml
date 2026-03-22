@@ -7,3 +7,9 @@ seq_url = "http://127.0.0.1:5341"
 seq_api_key = "FZii3D6ILDI38a0oIeDL"
 jwt_secret = "iP8BoK3dJfTQGz5UyXq9NwL7e0vCmAhR6S2YxE1ZpDt4"
 jwt_expiration_hours = 6
+
+# Testnet faucet (POST /faucet with {"address":"0x..."}). Enable for local dev; disable in production.
+faucet_enabled = true
+# Use same key as deploy so faucet address matches genesis-funded account (0xdeb4cfb63db134698e1879ea24904df074726cc0)
+faucet_private_key = "d2c446110cfcecbdf05b2be528e72483de5b6f7ef9c7856df2f81f48e9f2748f"
+faucet_amount_clt = 1000
