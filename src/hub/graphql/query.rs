@@ -3,7 +3,10 @@ use std::sync::Arc;
 use crate::hub::{
     clutch_node_client::ClutchNodeClient,
     graphql::lists,
-    graphql::types::{get_auth_user, AuthGuard, AvailableActiveTrip, AvailableRideRequest, AvailableRideOffer, MapBoundsInput, RideRequest},
+    graphql::types::{
+        get_auth_user, AuthGuard, AvailableActiveTrip, AvailableRecentTrip, AvailableRideOffer,
+        AvailableRideRequest, MapBoundsInput, RideRequest,
+    },
 };
 use async_graphql::{Context, Object};
 
@@ -93,6 +96,26 @@ impl Query {
             .clone();
 
         lists::list_completed_trips_parsed(
+            &client,
+            driver_address.as_deref(),
+            passenger_address.as_deref(),
+        )
+        .await
+    }
+
+    /// Lists recent finished trips (full fare paid or cancelled). Optional driver/passenger filter.
+    pub async fn list_recent_trips(
+        &self,
+        ctx: &Context<'_>,
+        driver_address: Option<String>,
+        passenger_address: Option<String>,
+    ) -> async_graphql::Result<Vec<AvailableRecentTrip>> {
+        let client = ctx
+            .data::<Arc<ClutchNodeClient>>()
+            .map_err(|_| async_graphql::Error::new("Node client not found"))?
+            .clone();
+
+        lists::list_recent_trips_parsed(
             &client,
             driver_address.as_deref(),
             passenger_address.as_deref(),

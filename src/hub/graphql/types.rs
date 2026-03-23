@@ -46,6 +46,21 @@ pub struct AvailableActiveTrip {
     pub driver_address: String,
     pub passenger_address: String,
 }
+
+/// Finished trip history: full fare paid (`completed`) or cancelled (`cancelled`).
+#[derive(SimpleObject, Serialize, Deserialize)]
+pub struct AvailableRecentTrip {
+    pub tx_hash: String,
+    pub ride_offer_tx_hash: String,
+    pub ride_request_tx_hash: String,
+    pub pickup_location: Coordinates,
+    pub dropoff_location: Coordinates,
+    pub fare: u64,
+    pub fare_paid: u64,
+    pub driver_address: String,
+    pub passenger_address: String,
+    pub trip_status: String,
+}
 /// Optional map viewport bounds for filtering ride requests by pickup location.
 #[derive(InputObject, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]

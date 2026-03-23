@@ -4,7 +4,9 @@ use std::time::Duration;
 
 use crate::hub::clutch_node_client::ClutchNodeClient;
 use super::lists;
-use super::types::{AvailableActiveTrip, AvailableRideOffer, AvailableRideRequest, MapBoundsInput};
+use super::types::{
+    AvailableActiveTrip, AvailableRecentTrip, AvailableRideOffer, AvailableRideRequest, MapBoundsInput,
+};
 use async_graphql::{Context, Error, Result};
 use futures_util::stream::{self, Stream};
 
@@ -16,6 +18,7 @@ const OFFERS_SNAPSHOT_INTERVAL_MS: u64 = 500;
 type RideRequestStream = Pin<Box<dyn Stream<Item = Result<Vec<AvailableRideRequest>>> + Send>>;
 type RideOfferStream = Pin<Box<dyn Stream<Item = Result<Vec<AvailableRideOffer>>> + Send>>;
 type ActiveTripStream = Pin<Box<dyn Stream<Item = Result<Vec<AvailableActiveTrip>>> + Send>>;
+type RecentTripStream = Pin<Box<dyn Stream<Item = Result<Vec<AvailableRecentTrip>>> + Send>>;
 
 fn require_node_client(ctx: &Context<'_>) -> Result<Arc<ClutchNodeClient>> {
     ctx.data::<Arc<ClutchNodeClient>>()
@@ -144,6 +147,41 @@ impl Subscription {
                     tokio::time::sleep(Duration::from_millis(SNAPSHOT_INTERVAL_MS)).await;
                 }
                 let res = lists::list_completed_trips_parsed(
+                    &client,
+                    driver.as_deref(),
+                    passenger.as_deref(),
+                )
+                .await;
+                Some((res, n + 1))
+            }
+        }));
+        s
+    }
+
+    /// Periodically mirrors `listRecentTrips` (completed + cancelled).
+    async fn recent_trips_updated(
+        &self,
+        ctx: &Context<'_>,
+        driver_address: Option<String>,
+        passenger_address: Option<String>,
+    ) -> RecentTripStream {
+        let client = match require_node_client(ctx) {
+            Ok(c) => c,
+            Err(e) => {
+                let s: RecentTripStream = Box::pin(stream::once(async move { Err(e) }));
+                return s;
+            }
+        };
+
+        let s: RecentTripStream = Box::pin(stream::unfold(0u32, move |n| {
+            let client = client.clone();
+            let driver = driver_address.clone();
+            let passenger = passenger_address.clone();
+            async move {
+                if n > 0 {
+                    tokio::time::sleep(Duration::from_millis(SNAPSHOT_INTERVAL_MS)).await;
+                }
+                let res = lists::list_recent_trips_parsed(
                     &client,
                     driver.as_deref(),
                     passenger.as_deref(),

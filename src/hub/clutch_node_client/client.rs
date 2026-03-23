@@ -259,4 +259,23 @@ impl ClutchNodeClient {
             _ => Err("Expected array of completed trips in response".to_string()),
         }
     }
+
+    /// Lists recent finished trips (completed or cancelled). Optionally filter by driver/passenger.
+    pub async fn list_recent_trips(
+        &self,
+        params: serde_json::Value,
+    ) -> Result<Vec<serde_json::Value>, String> {
+        let params_obj = if params.is_object() {
+            params
+        } else {
+            serde_json::json!({})
+        };
+
+        let result = self.send_request("list_recent_trips", params_obj).await?;
+
+        match result {
+            serde_json::Value::Array(arr) => Ok(arr),
+            _ => Err("Expected array of recent trips in response".to_string()),
+        }
+    }
 }

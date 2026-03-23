@@ -5,7 +5,9 @@ use async_graphql::Error;
 use tracing::error;
 
 use crate::hub::clutch_node_client::ClutchNodeClient;
-use super::types::{AvailableActiveTrip, AvailableRideOffer, AvailableRideRequest, MapBoundsInput};
+use super::types::{
+    AvailableActiveTrip, AvailableRecentTrip, AvailableRideOffer, AvailableRideRequest, MapBoundsInput,
+};
 
 pub async fn list_ride_requests_parsed(
     client: &Arc<ClutchNodeClient>,
@@ -99,6 +101,31 @@ pub async fn list_completed_trips_parsed(
         match serde_json::from_value::<AvailableActiveTrip>(item) {
             Ok(trip) => result.push(trip),
             Err(e) => error!("Failed to parse completed trip from node: {}", e),
+        }
+    }
+    Ok(result)
+}
+
+pub async fn list_recent_trips_parsed(
+    client: &Arc<ClutchNodeClient>,
+    driver_address: Option<&str>,
+    passenger_address: Option<&str>,
+) -> Result<Vec<AvailableRecentTrip>, Error> {
+    let params = serde_json::json!({
+        "driver_address": driver_address,
+        "passenger_address": passenger_address
+    });
+
+    let raw_list = client
+        .list_recent_trips(params)
+        .await
+        .map_err(Error::new)?;
+
+    let mut result = Vec::with_capacity(raw_list.len());
+    for item in raw_list {
+        match serde_json::from_value::<AvailableRecentTrip>(item) {
+            Ok(trip) => result.push(trip),
+            Err(e) => error!("Failed to parse recent trip from node: {}", e),
         }
     }
     Ok(result)
