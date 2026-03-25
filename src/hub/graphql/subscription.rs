@@ -19,6 +19,7 @@ type RideRequestStream = Pin<Box<dyn Stream<Item = Result<Vec<AvailableRideReque
 type RideOfferStream = Pin<Box<dyn Stream<Item = Result<Vec<AvailableRideOffer>>> + Send>>;
 type ActiveTripStream = Pin<Box<dyn Stream<Item = Result<Vec<AvailableActiveTrip>>> + Send>>;
 type RecentTripStream = Pin<Box<dyn Stream<Item = Result<Vec<AvailableRecentTrip>>> + Send>>;
+type AccountBalanceStream = Pin<Box<dyn Stream<Item = Result<u64>> + Send>>;
 
 fn require_node_client(ctx: &Context<'_>) -> Result<Arc<ClutchNodeClient>> {
     ctx.data::<Arc<ClutchNodeClient>>()
@@ -190,6 +191,35 @@ impl Subscription {
                 Some((res, n + 1))
             }
         }));
+        s
+    }
+
+    /// Periodically mirrors `accountBalance(publicKey)` for the given public key.
+    async fn account_balance_updated(
+        &self,
+        ctx: &Context<'_>,
+        public_key: String,
+    ) -> AccountBalanceStream {
+        let client = match require_node_client(ctx) {
+            Ok(c) => c,
+            Err(e) => {
+                let s: AccountBalanceStream = Box::pin(stream::once(async move { Err(e) }));
+                return s;
+            }
+        };
+
+        let s: AccountBalanceStream = Box::pin(stream::unfold(0u32, move |n| {
+            let client = client.clone();
+            let pk = public_key.clone();
+            async move {
+                if n > 0 {
+                    tokio::time::sleep(Duration::from_millis(SNAPSHOT_INTERVAL_MS)).await;
+                }
+                let bal = client.get_account_balance(&pk).await;
+                Some((Ok(bal), n + 1))
+            }
+        }));
+
         s
     }
 }
