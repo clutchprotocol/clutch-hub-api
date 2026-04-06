@@ -13,6 +13,13 @@ RUN apt-get update && apt-get install -y \
     libssl-dev \
     && rm -rf /var/lib/apt/lists/*
 
+# Harden Cargo network behavior for unstable links.
+ENV CARGO_REGISTRIES_CRATES_IO_PROTOCOL=sparse \
+    CARGO_NET_RETRY=10 \
+    CARGO_HTTP_TIMEOUT=600 \
+    CARGO_HTTP_MULTIPLEXING=false \
+    CARGO_HTTP_LOW_SPEED_LIMIT=1
+
 # Create app user for security
 RUN groupadd -g 1000 clutch && \
     useradd -r -u 1000 -g clutch -s /bin/sh clutch
@@ -22,10 +29,12 @@ WORKDIR /usr/src/clutch-hub-api
 # Copy dependency files for better caching
 COPY Cargo.toml Cargo.lock ./
 
-# Create dummy source and build dependencies for better caching
+# Create dummy source and build dependencies for better caching.
+# `cargo fetch` with retries surfaces network issues earlier and warms cache.
 # Then delete the dummy binary artifacts so the real build creates fresh binary
 RUN mkdir src && \
     echo "fn main() {}" > src/main.rs && \
+    cargo fetch --locked && \
     cargo build --release && \
     rm -f target/release/clutch-hub-api target/release/clutch-hub-api.d && \
     rm -rf target/release/deps/clutch_hub_api* target/release/.fingerprint/clutch-hub-api-* && \
