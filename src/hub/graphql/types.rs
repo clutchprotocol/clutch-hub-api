@@ -22,6 +22,9 @@ pub struct AvailableRideRequest {
     pub dropoff_location: Coordinates,
     pub fare: u64,
     pub passenger_address: String,
+    #[graphql(name = "referrer")]
+    #[serde(default)]
+    pub referrer: Option<String>,
 }
 
 /// A ride offer made by a driver for a specific ride request.
@@ -31,6 +34,9 @@ pub struct AvailableRideOffer {
     pub ride_request_tx_hash: String,
     pub fare: u64,
     pub driver_address: String,
+    #[graphql(name = "referrer")]
+    #[serde(default)]
+    pub referrer: Option<String>,
 }
 
 /// An active or completed trip listing (same shape: `fare_paid` vs `fare` distinguishes state on the node).

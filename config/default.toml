@@ -13,3 +13,7 @@ faucet_enabled = true
 # Use same key as deploy so faucet address matches genesis-funded account (0xdeb4cfb63db134698e1879ea24904df074726cc0)
 faucet_private_key = "d2c446110cfcecbdf05b2be528e72483de5b6f7ef9c7856df2f81f48e9f2748f"
 faucet_amount_clt = 1000
+
+# Optional default app-developer referrers (used when GraphQL referrer arg is omitted).
+default_ride_request_referrer = ""
+default_ride_offer_referrer = ""

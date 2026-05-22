@@ -4,6 +4,7 @@ pub mod configuration;
 pub mod faucet;
 pub mod graphql;
 pub mod metric;
+pub mod referrer;
 pub mod seq;
 pub mod server;
 pub mod signature_keys;

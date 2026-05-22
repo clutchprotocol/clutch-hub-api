@@ -26,6 +26,12 @@ pub struct AppConfig {
     /// Amount of CLT to send per faucet request.
     #[serde(default = "default_faucet_amount")]
     pub faucet_amount_clt: u64,
+    /// Default referrer address for RideRequest when the client omits `referrer` (empty = none).
+    #[serde(default)]
+    pub default_ride_request_referrer: String,
+    /// Default referrer address for RideOffer when the client omits `referrer` (empty = none).
+    #[serde(default)]
+    pub default_ride_offer_referrer: String,
 }
 
 impl AppConfig {

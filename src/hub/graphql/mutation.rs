@@ -5,6 +5,7 @@ use crate::hub::{
     clutch_node_client::ClutchNodeClient,
     configuration::AppConfig,
     graphql::types::{get_auth_user, AuthGuard, TokenResponse},
+    referrer::resolve_referrer,
 };
 use async_graphql::{Context, Json, Object};
 use serde_json::json;
@@ -60,9 +61,15 @@ impl Mutation {
         let auth_user = get_auth_user(ctx)
             .ok_or_else(|| async_graphql::Error::new("User not authenticated"))?;
 
+        let config = ctx
+            .data::<AppConfig>()
+            .map_err(|_| async_graphql::Error::new("Failed to get app config"))?;
+
+        let resolved_referrer = resolve_referrer(referrer, &config.default_ride_request_referrer);
+
         info!(
-            "Processing ride request for user with public key: {}",
-            auth_user.public_key
+            "Processing ride request for user {} referrer={:?}",
+            auth_user.public_key, resolved_referrer
         );
 
         let client = ctx
@@ -89,7 +96,7 @@ impl Mutation {
                         "latitude": dropoff_latitude,
                         "longitude": dropoff_longitude
                     },
-                    "referrer": referrer
+                    "referrer": resolved_referrer
                 }
             }
         });
@@ -108,9 +115,15 @@ impl Mutation {
         let auth_user = get_auth_user(ctx)
             .ok_or_else(|| async_graphql::Error::new("User not authenticated"))?;
 
+        let config = ctx
+            .data::<AppConfig>()
+            .map_err(|_| async_graphql::Error::new("Failed to get app config"))?;
+
+        let resolved_referrer = resolve_referrer(referrer, &config.default_ride_offer_referrer);
+
         info!(
-            "Processing ride offer for user {} on ride request {}",
-            auth_user.public_key, ride_request_transaction_hash
+            "Processing ride offer for user {} on request {} referrer={:?}",
+            auth_user.public_key, ride_request_transaction_hash, resolved_referrer
         );
 
         let client = ctx
@@ -128,7 +141,7 @@ impl Mutation {
                 "arguments": {
                     "ride_request_transaction_hash": ride_request_transaction_hash,
                     "fare": fare,
-                    "referrer": referrer
+                    "referrer": resolved_referrer
                 }
             }
         });
