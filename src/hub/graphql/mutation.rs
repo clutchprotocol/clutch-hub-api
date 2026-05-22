@@ -54,6 +54,7 @@ impl Mutation {
         dropoff_latitude: f64,
         dropoff_longitude: f64,
         fare: i32,
+        referrer: Option<String>,
     ) -> async_graphql::Result<Json<serde_json::Value>> {
         // Get authenticated user from context
         let auth_user = get_auth_user(ctx)
@@ -87,7 +88,8 @@ impl Mutation {
                     "dropoff_location": {
                         "latitude": dropoff_latitude,
                         "longitude": dropoff_longitude
-                    }
+                    },
+                    "referrer": referrer
                 }
             }
         });
@@ -101,6 +103,7 @@ impl Mutation {
         ctx: &Context<'_>,
         ride_request_transaction_hash: String,
         fare: i32,
+        referrer: Option<String>,
     ) -> async_graphql::Result<Json<serde_json::Value>> {
         let auth_user = get_auth_user(ctx)
             .ok_or_else(|| async_graphql::Error::new("User not authenticated"))?;
@@ -124,7 +127,8 @@ impl Mutation {
                 "function_call_type": "RideOffer",
                 "arguments": {
                     "ride_request_transaction_hash": ride_request_transaction_hash,
-                    "fare": fare
+                    "fare": fare,
+                    "referrer": referrer
                 }
             }
         });
