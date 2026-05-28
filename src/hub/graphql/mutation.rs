@@ -5,7 +5,7 @@ use crate::hub::{
     clutch_node_client::ClutchNodeClient,
     configuration::AppConfig,
     graphql::types::{get_auth_user, AuthGuard, TokenResponse},
-    referrer::resolve_referrer,
+    referrer::configured_referrer,
 };
 use async_graphql::{Context, Json, Object};
 use serde_json::json;
@@ -55,7 +55,6 @@ impl Mutation {
         dropoff_latitude: f64,
         dropoff_longitude: f64,
         fare: i32,
-        referrer: Option<String>,
     ) -> async_graphql::Result<Json<serde_json::Value>> {
         // Get authenticated user from context
         let auth_user = get_auth_user(ctx)
@@ -65,7 +64,8 @@ impl Mutation {
             .data::<AppConfig>()
             .map_err(|_| async_graphql::Error::new("Failed to get app config"))?;
 
-        let resolved_referrer = resolve_referrer(referrer, &config.default_ride_request_referrer);
+        let resolved_referrer =
+            configured_referrer(&config.default_ride_request_referrer);
 
         info!(
             "Processing ride request for user {} referrer={:?}",
@@ -110,7 +110,6 @@ impl Mutation {
         ctx: &Context<'_>,
         ride_request_transaction_hash: String,
         fare: i32,
-        referrer: Option<String>,
     ) -> async_graphql::Result<Json<serde_json::Value>> {
         let auth_user = get_auth_user(ctx)
             .ok_or_else(|| async_graphql::Error::new("User not authenticated"))?;
@@ -119,7 +118,7 @@ impl Mutation {
             .data::<AppConfig>()
             .map_err(|_| async_graphql::Error::new("Failed to get app config"))?;
 
-        let resolved_referrer = resolve_referrer(referrer, &config.default_ride_offer_referrer);
+        let resolved_referrer = configured_referrer(&config.default_ride_offer_referrer);
 
         info!(
             "Processing ride offer for user {} on request {} referrer={:?}",

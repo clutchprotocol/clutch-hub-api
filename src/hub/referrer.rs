@@ -1,17 +1,11 @@
-//! Resolve optional referrer addresses for ride transactions.
+//! Referrer addresses for ride transactions are set only by Hub API configuration.
 
-/// Use the client-supplied referrer when non-empty; otherwise fall back to configured default.
-pub fn resolve_referrer(client: Option<String>, default: &str) -> Option<String> {
-    if let Some(r) = client {
-        let trimmed = r.trim();
-        if !trimmed.is_empty() {
-            return Some(trimmed.to_string());
-        }
-    }
-    let d = default.trim();
-    if d.is_empty() {
+/// Returns the configured referrer address when non-empty.
+pub fn configured_referrer(value: &str) -> Option<String> {
+    let trimmed = value.trim();
+    if trimmed.is_empty() {
         None
     } else {
-        Some(d.to_string())
+        Some(trimmed.to_string())
     }
 }
