@@ -72,13 +72,8 @@ impl SignatureKeys {
         (r, s, v)
     }
 
-    pub fn verify(
-        derive_address: &str,
-        data: &[u8],
-        r: &str,
-        s: &str,
-        v: i32,
-    ) -> Result<bool, String> {
+    /// Recover the signer's public key from a recoverable signature over `Keccak256(data)`.
+    pub fn recover_public_key(data: &[u8], r: &str, s: &str, v: i32) -> Result<PublicKey, String> {
         let secp = Secp256k1::new();
         let mut hasher = Keccak256::new();
         hasher.update(data);
@@ -88,18 +83,54 @@ impl SignatureKeys {
 
         let sig_r = Vec::from_hex(Self::strip_hex_prefix(r)).map_err(|_| "Invalid hex in r".to_string())?;
         let sig_s = Vec::from_hex(Self::strip_hex_prefix(s)).map_err(|_| "Invalid hex in s".to_string())?;
+        if sig_r.len() != 32 || sig_s.len() != 32 {
+            return Err("r and s must each be 32 bytes of hex".to_string());
+        }
         let signature_data = [&sig_r[..], &sig_s[..]].concat();
         let recovery_id =
             RecoveryId::from_i32(v - 27).map_err(|_| "Invalid recovery ID".to_string())?;
         let recoverable_sig = RecoverableSignature::from_compact(&signature_data, recovery_id)
             .map_err(|_| "Valid signature could not be created".to_string())?;
 
-        match secp.recover_ecdsa(&message, &recoverable_sig) {
-            Ok(recovered_public_key) => {
+        secp.recover_ecdsa(&message, &recoverable_sig)
+            .map_err(|_| "Public key could not be recovered".to_string())
+    }
+
+    pub fn verify(
+        derive_address: &str,
+        data: &[u8],
+        r: &str,
+        s: &str,
+        v: i32,
+    ) -> Result<bool, String> {
+        let recovered_public_key = Self::recover_public_key(data, r, s, v)?;
+        let derived_address = Self::derive_address(&recovered_public_key);
+        Ok(derived_address == derive_address)
+    }
+
+    /// Verify that the recoverable signature `(r, s, v)` over `Keccak256(data)` was produced by
+    /// the holder of `claimed_key`. `claimed_key` may be a 40-char address or a 130-char
+    /// uncompressed public key, with or without `0x`, any case (same shapes as
+    /// `validate_public_key`).
+    pub fn verify_key_ownership(
+        claimed_key: &str,
+        data: &[u8],
+        r: &str,
+        s: &str,
+        v: i32,
+    ) -> Result<bool, String> {
+        let recovered_public_key = Self::recover_public_key(data, r, s, v)?;
+        let cleaned_key = Self::strip_hex_prefix(claimed_key).to_lowercase();
+        match cleaned_key.len() {
+            130 => Ok(hex::encode(recovered_public_key.serialize_uncompressed()) == cleaned_key),
+            40 => {
                 let derived_address = Self::derive_address(&recovered_public_key);
-                Ok(derived_address == derive_address)
+                Ok(Self::strip_hex_prefix(&derived_address) == cleaned_key)
             }
-            Err(_) => Err("Public key could not be recovered".to_string()),
+            _ => Err(
+                "public key must be a 40-char address or 130-char uncompressed public key"
+                    .to_string(),
+            ),
         }
     }
 

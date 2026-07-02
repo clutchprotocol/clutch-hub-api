@@ -9,7 +9,7 @@ docker rm -f clutch-hub-api-test 2>$null
 
 # Start the container in background
 Write-Host "🚀 Starting clutch-hub-api container..." -ForegroundColor Yellow
-$containerId = docker run -d -p 8080:8080 --name clutch-hub-api-test clutch-hub-api
+$containerId = docker run -d -p 3000:3000 --name clutch-hub-api-test clutch-hub-api
 
 if ($LASTEXITCODE -ne 0) {
     Write-Host "❌ Failed to start container!" -ForegroundColor Red
@@ -30,7 +30,7 @@ Write-Host $containerStatus -ForegroundColor Gray
 # Try to test the health endpoint quickly
 Write-Host "🏥 Testing health endpoint..." -ForegroundColor Yellow
 try {
-    $response = Invoke-RestMethod -Uri "http://localhost:8080/health" -Method Get -TimeoutSec 5 -ErrorAction Stop
+    $response = Invoke-RestMethod -Uri "http://localhost:3000/health" -Method Get -TimeoutSec 5 -ErrorAction Stop
     Write-Host "✅ Health endpoint responded successfully!" -ForegroundColor Green
     Write-Host "Response: $($response | ConvertTo-Json -Compress)" -ForegroundColor Gray
 } catch {
@@ -63,7 +63,7 @@ if ($isRunning) {
             query = "query { __schema { types { name } } }"
         } | ConvertTo-Json
         
-        $response = Invoke-RestMethod -Uri "http://localhost:8080/graphql" -Method Post -Body $graphqlQuery -ContentType "application/json" -TimeoutSec 5 -ErrorAction Stop
+        $response = Invoke-RestMethod -Uri "http://localhost:3000/graphql" -Method Post -Body $graphqlQuery -ContentType "application/json" -TimeoutSec 5 -ErrorAction Stop
         Write-Host "✅ GraphQL endpoint responded successfully!" -ForegroundColor Green
         Write-Host "Response: $($response | ConvertTo-Json -Compress)" -ForegroundColor Gray
     } catch {
@@ -78,9 +78,9 @@ Write-Host "=================" -ForegroundColor Cyan
 $finalStatus = docker ps -a --filter "name=clutch-hub-api-test" --format "{{.Status}}"
 if ($finalStatus -like "*Up*") {
     Write-Host "✅ Container Status: Running" -ForegroundColor Green
-    Write-Host "🔗 API URL: http://localhost:8080" -ForegroundColor Cyan
-    Write-Host "🏥 Health Check: http://localhost:8080/health" -ForegroundColor Cyan
-    Write-Host "🔍 GraphQL: http://localhost:8080/graphql" -ForegroundColor Cyan
+    Write-Host "🔗 API URL: http://localhost:3000" -ForegroundColor Cyan
+    Write-Host "🏥 Health Check: http://localhost:3000/health" -ForegroundColor Cyan
+    Write-Host "🔍 GraphQL: http://localhost:3000/graphql" -ForegroundColor Cyan
 } else {
     Write-Host "ℹ️  Container Status: $finalStatus" -ForegroundColor Blue
     Write-Host "📝 Note: Container exits immediately without external clutch-node service" -ForegroundColor Blue

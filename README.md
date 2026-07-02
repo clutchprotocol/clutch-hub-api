@@ -22,10 +22,16 @@ Rust backend bridging applications to the Clutch Node blockchain via GraphQL.
 
 ## Authentication
 
-Wallet-based JWT — no username/password:
+Wallet-based JWT — no username/password. Token issuance requires proof of key ownership: sign the challenge `clutch-auth:{publicKey}:{timestamp}` (unix seconds, ±120s window) with the wallet's private key using the stack's signing convention (the SDK does this automatically):
 
 ```graphql
-mutation { generateToken(publicKey: "0x...") { token expiresAt } }
+mutation {
+  generateToken(
+    publicKey: "0x..."
+    timestamp: 1751500000
+    signature: { r: "0x...", s: "0x...", v: 28 }
+  ) { token expiresAt }
+}
 ```
 
 Protected mutations require `Authorization: Bearer <token>`.

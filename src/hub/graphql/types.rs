@@ -83,6 +83,16 @@ pub struct TokenResponse {
     pub expires_at: usize,
 }
 
+/// Recoverable secp256k1 signature over the `generateToken` auth challenge
+/// (`clutch-auth:{publicKey}:{timestamp}` — see `hub::auth`). `r`/`s` are 32-byte hex
+/// (0x optional); `v` is 27 or 28.
+#[derive(InputObject)]
+pub struct AuthSignatureInput {
+    pub r: String,
+    pub s: String,
+    pub v: i32,
+}
+
 #[derive(Clone, Debug)]
 pub struct AuthUser {
     pub public_key: String,

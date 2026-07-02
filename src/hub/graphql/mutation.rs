@@ -1,10 +1,11 @@
 use std::sync::Arc;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::hub::{
     auth,
     clutch_node_client::ClutchNodeClient,
     configuration::AppConfig,
-    graphql::types::{get_auth_user, AuthGuard, TokenResponse},
+    graphql::types::{get_auth_user, AuthGuard, AuthSignatureInput, TokenResponse},
     referrer::configured_referrer,
 };
 use async_graphql::{Context, Json, Object};
@@ -27,14 +28,38 @@ pub struct Mutation;
 
 #[Object]
 impl Mutation {
+    /// Issue a JWT after verifying proof of key ownership: the caller must sign the canonical
+    /// challenge `clutch-auth:{publicKey}:{timestamp}` (see `hub::auth`) with the private key
+    /// belonging to `public_key`. `timestamp` is unix seconds and must be within ±120s of
+    /// server time.
     pub async fn generate_token(
         &self,
         ctx: &Context<'_>,
         public_key: String,
+        timestamp: i64,
+        signature: AuthSignatureInput,
     ) -> async_graphql::Result<TokenResponse> {
         let config = ctx
             .data::<AppConfig>()
             .map_err(|_| async_graphql::Error::new("Failed to get app config"))?;
+
+        let now_secs = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map_err(|_| async_graphql::Error::new("System time error"))?
+            .as_secs() as i64;
+
+        auth::verify_auth_challenge(
+            &public_key,
+            timestamp,
+            &signature.r,
+            &signature.s,
+            signature.v,
+            now_secs,
+        )
+        .map_err(|e| {
+            error!("generateToken proof-of-key-ownership failed for {}: {}", public_key, e);
+            async_graphql::Error::new(format!("Proof of key ownership failed: {}", e))
+        })?;
 
         let (token, expires_at) = auth::generate_jwt_token(
             &public_key,
