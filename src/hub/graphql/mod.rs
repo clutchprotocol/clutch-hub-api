@@ -27,5 +27,10 @@ pub fn build_schema(
     )
     .data(ws_manager)
     .data(config)
+    // Bound query cost so a single aliased request can't fan out into hundreds of
+    // concurrent node RPCs contending on the one shared WebSocket mutex (a cheap DoS).
+    // Every field is weight 1 by default; normal client queries are well under this.
+    .limit_complexity(200)
+    .limit_depth(12)
     .finish()
 }
