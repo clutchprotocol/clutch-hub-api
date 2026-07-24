@@ -138,6 +138,9 @@ impl Query {
             .map_err(|_| async_graphql::Error::new("WebSocket manager not found"))?
             .clone();
 
-        Ok(client.get_account_balance(&address).await)
+        client
+            .get_account_balance(&address)
+            .await
+            .map_err(|e| async_graphql::Error::new(format!("Failed to get balance: {}", e)))
     }
 }

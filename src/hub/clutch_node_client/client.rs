@@ -11,7 +11,7 @@ use tokio::sync::{oneshot, Mutex};
 use tokio::time::{timeout, Duration};
 use tokio_tungstenite::tungstenite::protocol::Message;
 use tokio_tungstenite::{MaybeTlsStream, WebSocketStream};
-use tracing::{error, info};
+use tracing::info;
 use uuid::Uuid;
 
 pub struct ClutchNodeClient {
@@ -138,51 +138,48 @@ impl ClutchNodeClient {
     }
 
     /// Gets the next nonce value for the given address.
-    pub async fn get_next_nonce(&self, address: &str) -> u64 {
-        // Request the next nonce from the node
-        match self.send_request("get_next_nonce", json!({ "address": address })).await {
-            Ok(result) => {
-                // Try to parse the nonce value from the result
-                match result.get("nonce").and_then(|n| n.as_u64()) {
-                    Some(nonce) => {
-                        info!("Retrieved nonce {} for address {}", nonce, address);
-                        nonce
-                    },
-                    None => {
-                        error!("Failed to parse nonce value from response: {:?}", result);
-                        // Fallback to default nonce if parsing fails
-                        1
-                    }
-                }
-            },
-            Err(e) => {
-                error!("Failed to get nonce for address {}: {}", address, e);
-                // Fallback to default nonce if request fails
-                1
+    ///
+    /// A down/unreachable node used to fall back to nonce 1, which produces a transaction
+    /// that either collides with an already-used nonce or silently skips ahead — either way
+    /// a confusing rejection far from the real cause. Propagate the error instead.
+    pub async fn get_next_nonce(&self, address: &str) -> Result<u64, String> {
+        let result = self
+            .send_request("get_next_nonce", json!({ "address": address }))
+            .await
+            .map_err(|e| format!("Failed to get nonce for address {}: {}", address, e))?;
+
+        match result.get("nonce").and_then(|n| n.as_u64()) {
+            Some(nonce) => {
+                info!("Retrieved nonce {} for address {}", nonce, address);
+                Ok(nonce)
             }
+            None => Err(format!(
+                "Failed to parse nonce value from node response for address {}: {:?}",
+                address, result
+            )),
         }
     }
 
     /// Gets the current balance for the given address.
-    pub async fn get_account_balance(&self, address: &str) -> u64 {
-        match self
+    ///
+    /// A down/unreachable node used to fall back to balance 0, which callers could mistake
+    /// for "this account is empty" rather than "we don't actually know". Propagate the error
+    /// instead.
+    pub async fn get_account_balance(&self, address: &str) -> Result<u64, String> {
+        let result = self
             .send_request("get_account_balance", json!({ "address": address }))
             .await
-        {
-            Ok(result) => match result.get("balance").and_then(|n| n.as_u64()) {
-                Some(balance) => {
-                    info!("Retrieved balance {} for address {}", balance, address);
-                    balance
-                }
-                None => {
-                    error!("Failed to parse balance value from response: {:?}", result);
-                    0
-                }
-            },
-            Err(e) => {
-                error!("Failed to get balance for address {}: {}", address, e);
-                0
+            .map_err(|e| format!("Failed to get balance for address {}: {}", address, e))?;
+
+        match result.get("balance").and_then(|n| n.as_u64()) {
+            Some(balance) => {
+                info!("Retrieved balance {} for address {}", balance, address);
+                Ok(balance)
             }
+            None => Err(format!(
+                "Failed to parse balance value from node response for address {}: {:?}",
+                address, result
+            )),
         }
     }
 

@@ -103,7 +103,10 @@ impl Mutation {
             .clone();
 
         // Get the next nonce for this user using the client method
-        let nonce = client.get_next_nonce(&auth_user.public_key).await;
+        let nonce = client
+            .get_next_nonce(&auth_user.public_key)
+            .await
+            .map_err(|e| async_graphql::Error::new(format!("Failed to get nonce: {}", e)))?;
 
         // Create request parameters
         let params = json!({
@@ -155,7 +158,10 @@ impl Mutation {
             .map_err(|_| async_graphql::Error::new("WebSocket manager not found"))?
             .clone();
 
-        let nonce = client.get_next_nonce(&auth_user.public_key).await;
+        let nonce = client
+            .get_next_nonce(&auth_user.public_key)
+            .await
+            .map_err(|e| async_graphql::Error::new(format!("Failed to get nonce: {}", e)))?;
 
         let params = json!({
             "from": auth_user.public_key,
@@ -192,7 +198,10 @@ impl Mutation {
             .map_err(|_| async_graphql::Error::new("WebSocket manager not found"))?
             .clone();
 
-        let nonce = client.get_next_nonce(&auth_user.public_key).await;
+        let nonce = client
+            .get_next_nonce(&auth_user.public_key)
+            .await
+            .map_err(|e| async_graphql::Error::new(format!("Failed to get nonce: {}", e)))?;
 
         let params = json!({
             "from": auth_user.public_key,
@@ -233,7 +242,10 @@ impl Mutation {
             .map_err(|_| async_graphql::Error::new("WebSocket manager not found"))?
             .clone();
 
-        let nonce = client.get_next_nonce(&auth_user.public_key).await;
+        let nonce = client
+            .get_next_nonce(&auth_user.public_key)
+            .await
+            .map_err(|e| async_graphql::Error::new(format!("Failed to get nonce: {}", e)))?;
 
         let params = json!({
             "from": auth_user.public_key,
@@ -271,7 +283,10 @@ impl Mutation {
             .map_err(|_| async_graphql::Error::new("WebSocket manager not found"))?
             .clone();
 
-        let nonce = client.get_next_nonce(&auth_user.public_key).await;
+        let nonce = client
+            .get_next_nonce(&auth_user.public_key)
+            .await
+            .map_err(|e| async_graphql::Error::new(format!("Failed to get nonce: {}", e)))?;
 
         let params = json!({
             "from": auth_user.public_key,
@@ -307,7 +322,10 @@ impl Mutation {
             .map_err(|_| async_graphql::Error::new("WebSocket manager not found"))?
             .clone();
 
-        let nonce = client.get_next_nonce(&auth_user.public_key).await;
+        let nonce = client
+            .get_next_nonce(&auth_user.public_key)
+            .await
+            .map_err(|e| async_graphql::Error::new(format!("Failed to get nonce: {}", e)))?;
 
         let params = json!({
             "from": auth_user.public_key,

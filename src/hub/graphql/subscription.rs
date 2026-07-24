@@ -215,8 +215,8 @@ impl Subscription {
                 if n > 0 {
                     tokio::time::sleep(Duration::from_millis(SNAPSHOT_INTERVAL_MS)).await;
                 }
-                let bal = client.get_account_balance(&pk).await;
-                Some((Ok(bal), n + 1))
+                let bal = client.get_account_balance(&pk).await.map_err(Error::new);
+                Some((bal, n + 1))
             }
         }));
 

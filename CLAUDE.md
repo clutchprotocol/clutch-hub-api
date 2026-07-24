@@ -63,7 +63,7 @@ Rust GraphQL bridge between client apps and clutch-node. Actix-web serves HTTP/W
 ## Gotchas / conventions
 
 - Referrers are injected server-side from config (`default_ride_*_referrer`); clients must never pass a referrer.
-- `get_next_nonce` and `get_account_balance` swallow node errors and return fallbacks (nonce `1`, balance `0`) — a down node can produce transactions with wrong nonces rather than an error.
+- `get_next_nonce` and `get_account_balance` return `Result<u64, String>` and propagate node errors (a down node fails the request instead of silently producing a wrong nonce/balance).
 - `send_raw_transaction` params must be a bare JSON string, not an object; `client.rs::send_request` special-cases that method. Mutations auto-prepend `0x` to raw transactions.
 - `userRideRequests` and `rideRequest` queries return hardcoded placeholder data.
 - Node responses for list RPCs use snake_case field names deserialized into the GraphQL types via serde; keep the two in sync when node payloads change.

@@ -116,7 +116,7 @@ pub async fn execute_faucet(
     let recipient = normalize_address(recipient)?;
     let faucet_addr = faucet_address_from_private_key(faucet_private_key)?;
 
-    let balance = client.get_account_balance(&faucet_addr).await;
+    let balance = client.get_account_balance(&faucet_addr).await?;
     if balance < amount_clt {
         return Err(format!(
             "faucet account {} has insufficient balance (have {}, need {})",
@@ -124,7 +124,7 @@ pub async fn execute_faucet(
         ));
     }
 
-    let nonce = client.get_next_nonce(&faucet_addr).await;
+    let nonce = client.get_next_nonce(&faucet_addr).await?;
 
     let raw = sign_transfer_raw_transaction(
         faucet_private_key,
