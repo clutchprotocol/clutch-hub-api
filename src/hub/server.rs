@@ -15,6 +15,23 @@ pub async fn connect_websocket(wss_url: &str) -> Arc<ClutchNodeClient> {
     ClutchNodeClient::new(url)
 }
 
+/// `"*"` allows any origin (local/dev default); otherwise a comma-separated allowlist.
+/// Mirrors clutch-explorer's `app.rs` CORS pattern.
+fn build_cors(allowed_origins: &str) -> Cors {
+    let cors = if allowed_origins.trim() == "*" {
+        Cors::default().allow_any_origin()
+    } else {
+        allowed_origins
+            .split(',')
+            .map(str::trim)
+            .filter(|o| !o.is_empty())
+            .fold(Cors::default(), |cors, origin| cors.allowed_origin(origin))
+    };
+
+    cors.allowed_methods(vec!["GET", "POST", "OPTIONS"])
+        .allow_any_header()
+}
+
 async fn health_check() -> Result<HttpResponse> {
     Ok(HttpResponse::Ok().json(serde_json::json!({
         "status": "healthy",
@@ -89,14 +106,10 @@ pub async fn run_graphql_server(
     let schema = build_schema(ws_manager.clone(), config.clone());
     // Shared once across all workers (per-worker Data::new would multiply the limit by worker count).
     let rate_limiter = web::Data::new(FaucetRateLimiter::new());
+    let allowed_origins = config.allowed_origins.clone();
     HttpServer::new(move || {
         App::new()
-            .wrap(
-                Cors::default()
-                    .allow_any_origin()
-                    .allowed_methods(vec!["GET", "POST", "OPTIONS"])
-                    .allow_any_header()
-            )
+            .wrap(build_cors(&allowed_origins))
             .app_data(web::Data::new(config.clone()))
             .app_data(web::Data::new(schema.clone()))
             .app_data(web::Data::new(ws_manager.clone()))

@@ -9,6 +9,8 @@ seq_url = "http://127.0.0.1:5341"
 seq_api_key = "FZii3D6ILDI38a0oIeDL"
 jwt_secret = "iP8BoK3dJfTQGz5UyXq9NwL7e0vCmAhR6S2YxE1ZpDt4"
 jwt_expiration_hours = 6
+# "*" for local dev; clutch-deploy overrides via APP_ALLOWED_ORIGINS for staging/production.
+allowed_origins = "*"
 
 # Testnet faucet (POST /faucet with {"address":"0x..."}). Enable for local dev; disable in production.
 faucet_enabled = true
