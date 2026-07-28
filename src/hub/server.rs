@@ -1,4 +1,4 @@
-use crate::hub::clutch_node_client::ClutchNodeClient;
+use crate::hub::clutch_node_client::{ChainInfo, ClutchNodeClient};
 use crate::hub::configuration::AppConfig;
 use crate::hub::faucet::execute_faucet;
 use crate::hub::graphql::build_schema;
@@ -52,6 +52,7 @@ async fn post_faucet(
     client: web::Data<Arc<ClutchNodeClient>>,
     config: web::Data<AppConfig>,
     rate_limiter: web::Data<FaucetRateLimiter>,
+    chain_info: web::Data<Arc<ChainInfo>>,
 ) -> HttpResponse {
     if !config.faucet_enabled {
         return HttpResponse::ServiceUnavailable().json(serde_json::json!({
@@ -86,6 +87,7 @@ async fn post_faucet(
         config.faucet_private_key.trim(),
         body.address.trim(),
         config.faucet_amount_clt,
+        chain_info.chain_id,
     )
     .await
     {
@@ -102,10 +104,12 @@ pub async fn run_graphql_server(
     ws_addr: &str,
     ws_manager: Arc<ClutchNodeClient>,
     config: AppConfig,
+    chain_info: Arc<ChainInfo>,
 ) -> std::io::Result<()> {
-    let schema = build_schema(ws_manager.clone(), config.clone());
+    let schema = build_schema(ws_manager.clone(), config.clone(), chain_info.clone());
     // Shared once across all workers (per-worker Data::new would multiply the limit by worker count).
     let rate_limiter = web::Data::new(FaucetRateLimiter::new());
+    let chain_info_data = web::Data::new(chain_info);
     let allowed_origins = config.allowed_origins.clone();
     HttpServer::new(move || {
         App::new()
@@ -114,6 +118,7 @@ pub async fn run_graphql_server(
             .app_data(web::Data::new(schema.clone()))
             .app_data(web::Data::new(ws_manager.clone()))
             .app_data(rate_limiter.clone())
+            .app_data(chain_info_data.clone())
             .service(web::resource("/health").route(web::get().to(health_check)))
             .service(web::resource("/faucet").route(web::post().to(post_faucet)))
             .service(web::resource("/graphql").route(web::post().to(graphql_handler)))

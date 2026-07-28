@@ -58,12 +58,15 @@ fn encode_transfer_call(to: &str, value: u64) -> Vec<u8> {
     fc.out().as_ref().to_vec()
 }
 
-/// RLP-encode unsigned tx [from, nonce, data] with `from` without 0x prefix (SDK behavior).
-fn encode_unsigned_transaction(from_with_0x: &str, nonce: u64, data_rlp: &[u8]) -> Vec<u8> {
+/// RLP-encode unsigned tx `[from, nonce, chain_id, data]` with `from` without 0x prefix (SDK
+/// behavior). Must match the node's `calculate_hash` preimage exactly — see
+/// `clutch-node/src/node/transactions/transaction.rs`.
+fn encode_unsigned_transaction(from_with_0x: &str, nonce: u64, chain_id: u64, data_rlp: &[u8]) -> Vec<u8> {
     let from_clean = strip_0x(from_with_0x).to_string();
-    let mut stream = RlpStream::new_list(3);
+    let mut stream = RlpStream::new_list(4);
     stream.append(&from_clean);
     stream.append(&nonce);
+    stream.append(&chain_id);
     stream.append_raw(data_rlp, 1);
     stream.out().as_ref().to_vec()
 }
@@ -75,16 +78,19 @@ fn tx_hash_hex(unsigned_rlp: &[u8]) -> String {
     hex::encode(hasher.finalize())
 }
 
-/// Build signed raw transaction hex (with 0x) for Transfer, matching SDK output.
+/// Build signed raw transaction hex (with 0x) for Transfer, matching SDK output. Wire format
+/// is the node's 8-item list `[from, nonce, chain_id, r, s, v, hash, data]`, `chain_id` at
+/// index 2 — mirrors `clutch-node`'s `accepts_faucet_style_transfer_hash` test exactly.
 fn sign_transfer_raw_transaction(
     faucet_private_key_hex: &str,
     faucet_from_address: &str,
     nonce: u64,
+    chain_id: u64,
     to: &str,
     value: u64,
 ) -> Result<String, String> {
     let data_rlp = encode_transfer_call(to, value);
-    let unsigned_rlp = encode_unsigned_transaction(faucet_from_address, nonce, &data_rlp);
+    let unsigned_rlp = encode_unsigned_transaction(faucet_from_address, nonce, chain_id, &data_rlp);
     // Must match SDK + node verify: Keccak256(UTF-8 bytes of the 64-char hex string, no 0x).
     let hash_hex = tx_hash_hex(&unsigned_rlp);
     let (r, s, v) = SignatureKeys::sign(faucet_private_key_hex, hash_hex.as_bytes());
@@ -94,9 +100,10 @@ fn sign_transfer_raw_transaction(
     let s_clean = strip_0x(&s).to_string();
     let v_u64 = v as u64;
 
-    let mut full = RlpStream::new_list(7);
+    let mut full = RlpStream::new_list(8);
     full.append(&from_clean);
     full.append(&nonce);
+    full.append(&chain_id);
     full.append(&r_clean);
     full.append(&s_clean);
     full.append(&v_u64);
@@ -112,6 +119,7 @@ pub async fn execute_faucet(
     faucet_private_key: &str,
     recipient: &str,
     amount_clt: u64,
+    chain_id: u64,
 ) -> Result<serde_json::Value, String> {
     let recipient = normalize_address(recipient)?;
     let faucet_addr = faucet_address_from_private_key(faucet_private_key)?;
@@ -130,6 +138,7 @@ pub async fn execute_faucet(
         faucet_private_key,
         &faucet_addr,
         nonce,
+        chain_id,
         &recipient,
         amount_clt,
     )?;
@@ -168,9 +177,46 @@ mod tests {
     #[test]
     fn unsigned_rlp_deterministic() {
         let data = encode_transfer_call("0x1111111111111111111111111111111111111111", 42);
-        let u = encode_unsigned_transaction("0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", 1, &data);
+        let u = encode_unsigned_transaction("0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", 1, 2077, &data);
         assert!(!u.is_empty());
         let h = tx_hash_hex(&u);
         assert_eq!(h.len(), 64);
+    }
+
+    /// Guards against silently drifting from the node's wire format: decodes the faucet's own
+    /// raw transaction bytes with the `rlp` crate (independent of this file's own encoder) and
+    /// asserts exactly 8 items with `chain_id` at index 2, matching
+    /// `clutch-node`'s `Encodable`/`Decodable for Transaction` in `rlp_encoding.rs`.
+    #[test]
+    fn faucet_tx_matches_node_wire_format() {
+        let faucet_private_key = "d2c446110cfcecbdf05b2be528e72483de5b6f7ef9c7856df2f81f48e9f2748f";
+        let faucet_addr = faucet_address_from_private_key(faucet_private_key).unwrap();
+        let chain_id: u64 = 2077;
+        let nonce: u64 = 1;
+        let to = "0x1111111111111111111111111111111111111111";
+        let value: u64 = 100;
+
+        let raw = sign_transfer_raw_transaction(
+            faucet_private_key,
+            &faucet_addr,
+            nonce,
+            chain_id,
+            to,
+            value,
+        )
+        .unwrap();
+        let raw_bytes = hex::decode(strip_0x(&raw)).unwrap();
+
+        let rlp = rlp::Rlp::new(&raw_bytes);
+        assert!(rlp.is_list(), "raw transaction must be an RLP list");
+        assert_eq!(rlp.item_count().unwrap(), 8, "wire format must be the 8-item list");
+
+        let decoded_chain_id: u64 = rlp.val_at(2).unwrap();
+        assert_eq!(decoded_chain_id, chain_id, "chain_id must sit at index 2");
+
+        let decoded_from: String = rlp.val_at(0).unwrap();
+        assert_eq!(decoded_from, strip_0x(&faucet_addr));
+        let decoded_nonce: u64 = rlp.val_at(1).unwrap();
+        assert_eq!(decoded_nonce, nonce);
     }
 }
