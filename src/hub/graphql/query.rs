@@ -1,11 +1,11 @@
 use std::sync::Arc;
 
 use crate::hub::{
-    clutch_node_client::ClutchNodeClient,
+    clutch_node_client::{ChainInfo as NodeChainInfo, ClutchNodeClient},
     graphql::lists,
     graphql::types::{
         get_auth_user, AuthGuard, AvailableActiveTrip, AvailableRecentTrip, AvailableRideOffer,
-        AvailableRideRequest, MapBoundsInput, RideRequest,
+        AvailableRideRequest, ChainInfo, MapBoundsInput, RideRequest,
     },
 };
 use async_graphql::{Context, Object};
@@ -128,7 +128,7 @@ impl Query {
         &self,
         ctx: &Context<'_>,
         public_key: Option<String>,
-    ) -> async_graphql::Result<u64> {
+    ) -> async_graphql::Result<String> {
         let auth_user = get_auth_user(ctx)
             .ok_or_else(|| async_graphql::Error::new("User not authenticated"))?;
 
@@ -141,6 +141,24 @@ impl Query {
         client
             .get_account_balance(&address)
             .await
+            .map(|b| b.to_string())
             .map_err(|e| async_graphql::Error::new(format!("Failed to get balance: {}", e)))
+    }
+
+    /// Genesis-committed chain parameters, fetched once at startup (see `main.rs`) — a chain
+    /// swap requires an API restart to pick up new values, which is the intended trade-off
+    /// for a genesis constant.
+    pub async fn chain_info(&self, ctx: &Context<'_>) -> async_graphql::Result<ChainInfo> {
+        let info = ctx
+            .data::<Arc<NodeChainInfo>>()
+            .map_err(|_| async_graphql::Error::new("Chain info not found"))?;
+
+        Ok(ChainInfo {
+            chain_id: info.chain_id.to_string(),
+            is_testnet: info.is_testnet,
+            tx_fee: info.tx_fee.to_string(),
+            total_supply: info.total_supply.to_string(),
+            mint_authority: info.mint_authority.clone(),
+        })
     }
 }

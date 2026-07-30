@@ -3,15 +3,22 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::hub::{
     auth,
-    clutch_node_client::ClutchNodeClient,
+    clutch_node_client::{ChainInfo, ClutchNodeClient},
     configuration::AppConfig,
-    graphql::types::{get_auth_user, AuthGuard, AuthSignatureInput, TokenResponse},
+    graphql::types::{get_auth_user, parse_clt_amount, AuthGuard, AuthSignatureInput, TokenResponse},
     referrer::configured_referrer,
 };
 use async_graphql::{Context, Json, Object};
 use serde_json::json;
 use thiserror::Error;
 use tracing::{error, info};
+
+/// Fetches the chain_id cached at startup (see `main.rs`) from schema data.
+fn require_chain_id(ctx: &Context<'_>) -> async_graphql::Result<u64> {
+    ctx.data::<Arc<ChainInfo>>()
+        .map(|c| c.chain_id)
+        .map_err(|_| async_graphql::Error::new("Chain info not found"))
+}
 
 #[derive(Debug, Error)]
 pub enum MutationError {
@@ -29,9 +36,9 @@ pub struct Mutation;
 #[Object]
 impl Mutation {
     /// Issue a JWT after verifying proof of key ownership: the caller must sign the canonical
-    /// challenge `clutch-auth:{publicKey}:{timestamp}` (see `hub::auth`) with the private key
-    /// belonging to `public_key`. `timestamp` is unix seconds and must be within ±120s of
-    /// server time.
+    /// challenge `clutch-auth:{chain_id}:{publicKey}:{timestamp}` (see `hub::auth`) with the
+    /// private key belonging to `public_key`. `timestamp` is unix seconds and must be within
+    /// ±120s of server time.
     pub async fn generate_token(
         &self,
         ctx: &Context<'_>,
@@ -42,6 +49,7 @@ impl Mutation {
         let config = ctx
             .data::<AppConfig>()
             .map_err(|_| async_graphql::Error::new("Failed to get app config"))?;
+        let chain_id = require_chain_id(ctx)?;
 
         let now_secs = SystemTime::now()
             .duration_since(UNIX_EPOCH)
@@ -49,6 +57,7 @@ impl Mutation {
             .as_secs() as i64;
 
         auth::verify_auth_challenge(
+            chain_id,
             &public_key,
             timestamp,
             &signature.r,
@@ -79,11 +88,14 @@ impl Mutation {
         pickup_longitude: f64,
         dropoff_latitude: f64,
         dropoff_longitude: f64,
-        fare: i32,
+        fare: String,
     ) -> async_graphql::Result<Json<serde_json::Value>> {
         // Get authenticated user from context
         let auth_user = get_auth_user(ctx)
             .ok_or_else(|| async_graphql::Error::new("User not authenticated"))?;
+
+        let fare = parse_clt_amount(&fare)?;
+        let chain_id = require_chain_id(ctx)?;
 
         let config = ctx
             .data::<AppConfig>()
@@ -112,6 +124,7 @@ impl Mutation {
         let params = json!({
             "from": auth_user.public_key,
             "nonce": nonce,
+            "chain_id": chain_id,
             "data": {
                 "function_call_type": "RideRequest",
                 "arguments": {
@@ -137,10 +150,13 @@ impl Mutation {
         &self,
         ctx: &Context<'_>,
         ride_request_transaction_hash: String,
-        fare: i32,
+        fare: String,
     ) -> async_graphql::Result<Json<serde_json::Value>> {
         let auth_user = get_auth_user(ctx)
             .ok_or_else(|| async_graphql::Error::new("User not authenticated"))?;
+
+        let fare = parse_clt_amount(&fare)?;
+        let chain_id = require_chain_id(ctx)?;
 
         let config = ctx
             .data::<AppConfig>()
@@ -166,6 +182,7 @@ impl Mutation {
         let params = json!({
             "from": auth_user.public_key,
             "nonce": nonce,
+            "chain_id": chain_id,
             "data": {
                 "function_call_type": "RideOffer",
                 "arguments": {
@@ -188,6 +205,8 @@ impl Mutation {
         let auth_user = get_auth_user(ctx)
             .ok_or_else(|| async_graphql::Error::new("User not authenticated"))?;
 
+        let chain_id = require_chain_id(ctx)?;
+
         info!(
             "Processing ride acceptance for passenger {} on offer {}",
             auth_user.public_key, ride_offer_transaction_hash
@@ -206,6 +225,7 @@ impl Mutation {
         let params = json!({
             "from": auth_user.public_key,
             "nonce": nonce,
+            "chain_id": chain_id,
             "data": {
                 "function_call_type": "RideAcceptance",
                 "arguments": {
@@ -223,14 +243,16 @@ impl Mutation {
         &self,
         ctx: &Context<'_>,
         ride_acceptance_transaction_hash: String,
-        fare: i32,
+        fare: String,
     ) -> async_graphql::Result<Json<serde_json::Value>> {
         let auth_user = get_auth_user(ctx)
             .ok_or_else(|| async_graphql::Error::new("User not authenticated"))?;
 
-        if fare <= 0 {
+        let fare = parse_clt_amount(&fare)?;
+        if fare == 0 {
             return Err(async_graphql::Error::new("fare must be positive"));
         }
+        let chain_id = require_chain_id(ctx)?;
 
         info!(
             "Processing ride pay for passenger {} on acceptance {}",
@@ -250,6 +272,7 @@ impl Mutation {
         let params = json!({
             "from": auth_user.public_key,
             "nonce": nonce,
+            "chain_id": chain_id,
             "data": {
                 "function_call_type": "RidePay",
                 "arguments": {
@@ -273,6 +296,8 @@ impl Mutation {
         let auth_user = get_auth_user(ctx)
             .ok_or_else(|| async_graphql::Error::new("User not authenticated"))?;
 
+        let chain_id = require_chain_id(ctx)?;
+
         info!(
             "Processing ride cancel for user {} on acceptance {}",
             auth_user.public_key, ride_acceptance_transaction_hash
@@ -291,6 +316,7 @@ impl Mutation {
         let params = json!({
             "from": auth_user.public_key,
             "nonce": nonce,
+            "chain_id": chain_id,
             "data": {
                 "function_call_type": "RideCancel",
                 "arguments": {
@@ -312,6 +338,8 @@ impl Mutation {
         let auth_user = get_auth_user(ctx)
             .ok_or_else(|| async_graphql::Error::new("User not authenticated"))?;
 
+        let chain_id = require_chain_id(ctx)?;
+
         info!(
             "Processing ride request cancel for user {} on request {}",
             auth_user.public_key, ride_request_transaction_hash
@@ -330,10 +358,61 @@ impl Mutation {
         let params = json!({
             "from": auth_user.public_key,
             "nonce": nonce,
+            "chain_id": chain_id,
             "data": {
                 "function_call_type": "RideRequestCancel",
                 "arguments": {
                     "ride_request_transaction_hash": ride_request_transaction_hash
+                }
+            }
+        });
+
+        Ok(Json(params))
+    }
+
+    /// Burns `amount` CLT from the caller's balance, optionally tagged with a treasury
+    /// `redemption_ref` (hex(keccak256(intent_id))). `redemption_ref: None` maps to the
+    /// node's "no ref" convention (an empty string inside the transaction data) — the node
+    /// itself is what treats an absent/empty ref as "not a redemption."
+    #[graphql(guard = "AuthGuard")]
+    pub async fn create_unsigned_burn(
+        &self,
+        ctx: &Context<'_>,
+        amount: String,
+        redemption_ref: Option<String>,
+    ) -> async_graphql::Result<Json<serde_json::Value>> {
+        let auth_user = get_auth_user(ctx)
+            .ok_or_else(|| async_graphql::Error::new("User not authenticated"))?;
+
+        let amount = parse_clt_amount(&amount)?;
+        let chain_id = require_chain_id(ctx)?;
+
+        info!(
+            "Processing burn for user {} amount={} redemption_ref={:?}",
+            auth_user.public_key, amount, redemption_ref
+        );
+
+        let client = ctx
+            .data::<Arc<ClutchNodeClient>>()
+            .map_err(|_| async_graphql::Error::new("WebSocket manager not found"))?
+            .clone();
+
+        let nonce = client
+            .get_next_nonce(&auth_user.public_key)
+            .await
+            .map_err(|e| async_graphql::Error::new(format!("Failed to get nonce: {}", e)))?;
+
+        // Amount stays a JSON string inside the blob too: the SDK re-parses it, so nothing
+        // above 2^53 is ever rounded by a JS `Number` on the way through.
+        let params = json!({
+            "from": auth_user.public_key,
+            "nonce": nonce,
+            "chain_id": chain_id,
+            "data": {
+                "function_call_type": "Burn",
+                "arguments": {
+                    "amount": amount.to_string(),
+                    "redemption_ref": redemption_ref
                 }
             }
         });

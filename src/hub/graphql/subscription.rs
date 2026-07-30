@@ -19,7 +19,7 @@ type RideRequestStream = Pin<Box<dyn Stream<Item = Result<Vec<AvailableRideReque
 type RideOfferStream = Pin<Box<dyn Stream<Item = Result<Vec<AvailableRideOffer>>> + Send>>;
 type ActiveTripStream = Pin<Box<dyn Stream<Item = Result<Vec<AvailableActiveTrip>>> + Send>>;
 type RecentTripStream = Pin<Box<dyn Stream<Item = Result<Vec<AvailableRecentTrip>>> + Send>>;
-type AccountBalanceStream = Pin<Box<dyn Stream<Item = Result<u64>> + Send>>;
+type AccountBalanceStream = Pin<Box<dyn Stream<Item = Result<String>> + Send>>;
 
 fn require_node_client(ctx: &Context<'_>) -> Result<Arc<ClutchNodeClient>> {
     ctx.data::<Arc<ClutchNodeClient>>()
@@ -215,7 +215,11 @@ impl Subscription {
                 if n > 0 {
                     tokio::time::sleep(Duration::from_millis(SNAPSHOT_INTERVAL_MS)).await;
                 }
-                let bal = client.get_account_balance(&pk).await.map_err(Error::new);
+                let bal = client
+                    .get_account_balance(&pk)
+                    .await
+                    .map(|b| b.to_string())
+                    .map_err(Error::new);
                 Some((bal, n + 1))
             }
         }));

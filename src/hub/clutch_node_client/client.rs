@@ -2,6 +2,7 @@ use super::connection::start_connection_loop;
 use super::types::{JSONRPCRequest, JSONRPCResponse};
 use futures_util::stream::SplitSink;
 use futures_util::SinkExt;
+use serde::Deserialize;
 use serde_json;
 use serde_json::json;
 use std::collections::HashMap;
@@ -13,6 +14,24 @@ use tokio_tungstenite::tungstenite::protocol::Message;
 use tokio_tungstenite::{MaybeTlsStream, WebSocketStream};
 use tracing::info;
 use uuid::Uuid;
+
+/// Node's `get_chain_info` response. `total_supply` is a decimal string on the wire (the
+/// one field that can exceed 2^53); every other field is a bare JSON number — parsed here,
+/// never coerced, per the node's own `build_chain_info_response` doc comment.
+#[derive(Debug, Clone, Deserialize)]
+pub struct ChainInfo {
+    pub chain_id: u64,
+    pub is_testnet: bool,
+    pub tx_fee: u64,
+    #[serde(deserialize_with = "deserialize_total_supply")]
+    pub total_supply: u64,
+    pub mint_authority: String,
+}
+
+fn deserialize_total_supply<'de, D: serde::Deserializer<'de>>(d: D) -> Result<u64, D::Error> {
+    let s: String = Deserialize::deserialize(d)?;
+    s.parse().map_err(serde::de::Error::custom)
+}
 
 pub struct ClutchNodeClient {
     ws_sink: Arc<Mutex<Option<SplitSink<WebSocketStream<MaybeTlsStream<TcpStream>>, Message>>>>,
@@ -181,6 +200,18 @@ impl ClutchNodeClient {
                 address, result
             )),
         }
+    }
+
+    /// Fetches genesis-committed chain parameters + `total_supply`. This is a genesis
+    /// constant (see `ChainInit`), so callers fetch it once at startup rather than polling.
+    pub async fn get_chain_info(&self) -> Result<ChainInfo, String> {
+        let result = self
+            .send_request("get_chain_info", json!({}))
+            .await
+            .map_err(|e| format!("Failed to get chain info: {}", e))?;
+
+        serde_json::from_value(result.clone())
+            .map_err(|e| format!("Failed to parse chain info from node response: {} ({:?})", e, result))
     }
 
     /// Lists available ride requests from the node, optionally filtered by map bounds.

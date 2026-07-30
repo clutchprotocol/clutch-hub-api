@@ -1,5 +1,37 @@
 use async_graphql::{SimpleObject, Guard, Context, Result, Error, InputObject};
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
+
+/// Parses a GraphQL `String` amount (CLT base units) to `u64`. GraphQL's `Int` is 32-bit
+/// and this project's peg (1 USD = 1,000,000 CLT) overflows it at a ~$2,147 fare, so every
+/// fare/amount/balance scalar crosses the wire as a decimal string instead. One helper, used
+/// by every mutation/query that accepts or returns such a value.
+pub fn parse_clt_amount(s: &str) -> Result<u64> {
+    let v: u64 = s
+        .trim()
+        .parse()
+        .map_err(|_| Error::new("amount must be a non-negative integer string (CLT base units)"))?;
+    if v > i64::MAX as u64 {
+        return Err(Error::new("amount exceeds i64::MAX"));
+    }
+    Ok(v)
+}
+
+/// The node still sends fare/fare_paid as bare JSON numbers (only `total_supply` moved to a
+/// decimal string on the node side). This deserializes either shape into the `String` these
+/// GraphQL fields now expose, so hub-api's own output stays String-safe past 2^53 without
+/// requiring a matching node change to these particular fields.
+fn u64_as_string<'de, D: Deserializer<'de>>(deserializer: D) -> std::result::Result<String, D::Error> {
+    #[derive(Deserialize)]
+    #[serde(untagged)]
+    enum NumberOrString {
+        Number(u64),
+        String(String),
+    }
+    match NumberOrString::deserialize(deserializer)? {
+        NumberOrString::Number(n) => Ok(n.to_string()),
+        NumberOrString::String(s) => Ok(s),
+    }
+}
 
 #[derive(SimpleObject, Serialize, Deserialize)]
 pub struct RideRequest {
@@ -20,7 +52,8 @@ pub struct AvailableRideRequest {
     pub tx_hash: String,
     pub pickup_location: Coordinates,
     pub dropoff_location: Coordinates,
-    pub fare: u64,
+    #[serde(deserialize_with = "u64_as_string")]
+    pub fare: String,
     pub passenger_address: String,
     #[graphql(name = "referrer")]
     #[serde(default)]
@@ -32,7 +65,8 @@ pub struct AvailableRideRequest {
 pub struct AvailableRideOffer {
     pub tx_hash: String,
     pub ride_request_tx_hash: String,
-    pub fare: u64,
+    #[serde(deserialize_with = "u64_as_string")]
+    pub fare: String,
     pub driver_address: String,
     #[graphql(name = "referrer")]
     #[serde(default)]
@@ -47,8 +81,10 @@ pub struct AvailableActiveTrip {
     pub ride_request_tx_hash: String,
     pub pickup_location: Coordinates,
     pub dropoff_location: Coordinates,
-    pub fare: u64,
-    pub fare_paid: u64,
+    #[serde(deserialize_with = "u64_as_string")]
+    pub fare: String,
+    #[serde(deserialize_with = "u64_as_string")]
+    pub fare_paid: String,
     pub driver_address: String,
     pub passenger_address: String,
 }
@@ -61,8 +97,10 @@ pub struct AvailableRecentTrip {
     pub ride_request_tx_hash: String,
     pub pickup_location: Coordinates,
     pub dropoff_location: Coordinates,
-    pub fare: u64,
-    pub fare_paid: u64,
+    #[serde(deserialize_with = "u64_as_string")]
+    pub fare: String,
+    #[serde(deserialize_with = "u64_as_string")]
+    pub fare_paid: String,
     pub driver_address: String,
     pub passenger_address: String,
     pub trip_status: String,
@@ -83,9 +121,21 @@ pub struct TokenResponse {
     pub expires_at: usize,
 }
 
+/// Genesis-committed consensus parameters, as exposed to clients. All `u64`s cross as
+/// `String` — GraphQL `Int` is 32-bit; `chain_id`/`tx_fee` would individually fit, but one
+/// rule for every field here is cheaper for the SDK to remember than a per-field exception.
+#[derive(SimpleObject, Clone, Debug)]
+pub struct ChainInfo {
+    pub chain_id: String,
+    pub is_testnet: bool,
+    pub tx_fee: String,
+    pub total_supply: String,
+    pub mint_authority: String,
+}
+
 /// Recoverable secp256k1 signature over the `generateToken` auth challenge
-/// (`clutch-auth:{publicKey}:{timestamp}` — see `hub::auth`). `r`/`s` are 32-byte hex
-/// (0x optional); `v` is 27 or 28.
+/// (`clutch-auth:{chain_id}:{publicKey}:{timestamp}` — see `hub::auth`). `r`/`s` are 32-byte
+/// hex (0x optional); `v` is 27 or 28.
 #[derive(InputObject)]
 pub struct AuthSignatureInput {
     pub r: String,
