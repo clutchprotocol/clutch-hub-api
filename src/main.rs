@@ -68,13 +68,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         chain_info.chain_id, chain_info.is_testnet, chain_info.tx_fee
     );
 
-    // A faucet that signs and submits real transfers must never survive onto a non-testnet
-    // chain — that would let anyone drain real value. This is boot-time fatal
-    // misconfiguration, the one place this codebase panics rather than returning Result.
-    if config.faucet_enabled && !chain_info.is_testnet {
-        panic!("faucet enabled on a non-testnet chain (chain_id={}); refusing to start", chain_info.chain_id);
-    }
-
     let chain_info = Arc::new(chain_info);
     hub::server::run_graphql_server(&config.ws_addr, ws_manager, config.clone(), chain_info).await?;
 

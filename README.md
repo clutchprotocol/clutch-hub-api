@@ -16,7 +16,6 @@ Rust backend bridging applications to the Clutch Node blockchain via GraphQL.
 | Endpoint | Method | Description |
 |----------|--------|-------------|
 | `/health` | GET | Liveness check |
-| `/faucet` | POST | Testnet CLT drip (when enabled) |
 | `/graphql` | POST | Queries and mutations |
 | `/graphql/ws` | GET | GraphQL subscriptions (WebSocket) |
 
@@ -59,7 +58,7 @@ Full stack: [clutch-deploy](https://github.com/clutchprotocol/clutch-deploy)
 
 ## Configuration
 
-TOML files in `config/` with `APP_` environment overrides. Key settings: `ws_addr`, `clutch_node_ws_url`, `jwt_secret`, `faucet_enabled`.
+TOML files in `config/` with `APP_` environment overrides. Key settings: `ws_addr`, `clutch_node_ws_url`, `jwt_secret`, `allowed_origins`.
 
 See [API Configuration](https://docs.clutchprotocol.io/clutch-hub-api/configuration).
 

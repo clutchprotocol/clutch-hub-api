@@ -6,13 +6,13 @@ Rust GraphQL bridge between client apps and clutch-node. Actix-web serves HTTP/W
 
 - Build: `cargo build` (release: `cargo build --release`; toolchain pinned to 1.86.0 in `rust-toolchain.toml`)
 - Run: `cargo run` (loads `config/default.toml`) or `cargo run -- --env <name>` → `config/<name>.toml`
-- Test: `cargo test` (unit tests only, inline in `src/hub/faucet.rs`, `src/hub/signature_keys.rs`, and `src/hub/auth.rs`; no integration tests). The `sdk_generated_fixture_*` tests in `auth.rs` pin cross-language agreement with SDK-signed auth challenges — regenerate them from the SDK signing code path if the challenge format ever changes.
+- Test: `cargo test` (unit tests only, inline in `src/hub/signature_keys.rs`, `src/hub/auth.rs`, and `src/hub/configuration.rs`; no integration tests). The `sdk_generated_fixture_*` tests in `auth.rs` pin cross-language agreement with SDK-signed auth challenges — regenerate them from the SDK signing code path if the challenge format ever changes.
 - Docker: `docker compose up --build` (API only, port 3000); container smoke test: `.\test-api.ps1`
 
 ## Source layout (`src/`)
 
 - `main.rs` — CLI arg parsing (`--env` flag or positional), loads config, starts tracing, metrics server, node WS client, then the Actix server.
-- `hub/server.rs` — Actix `HttpServer`: routes `/health`, `/faucet` (POST), `/graphql` (POST), `/graphql/ws` (GET, subscriptions). CORS is allow-any-origin.
+- `hub/server.rs` — Actix `HttpServer`: routes `/health`, `/graphql` (POST), `/graphql/ws` (GET, subscriptions). CORS is allow-any-origin.
 - `hub/graphql/mod.rs` — `build_schema()`: injects `Arc<ClutchNodeClient>` and `AppConfig` as schema data.
 - `hub/graphql/query.rs` — `Query` root: `list_ride_requests`, `list_ride_offers`, `list_active_trips`, `list_completed_trips`, `list_recent_trips`, `account_balance`.
 - `hub/graphql/mutation.rs` — `Mutation` root: `generate_token`, six `create_unsigned_*` ride builders, `send_raw_transaction`.
@@ -22,7 +22,6 @@ Rust GraphQL bridge between client apps and clutch-node. Actix-web serves HTTP/W
 - `hub/graphql/handler.rs` — HTTP/WS handlers; JWT extraction and validation.
 - `hub/clutch_node_client/` — node RPC client: `client.rs` (`send_request`, `get_next_nonce`, `get_account_balance`, `list_*`), `connection.rs` (reconnect loop, response demux), `mod.rs` (JSON-RPC request/response structs).
 - `hub/auth.rs` — JWT generation (HS256, claims `{pk, exp}`) + `verify_auth_challenge` (proof-of-key-ownership check for `generateToken`).
-- `hub/faucet.rs` — testnet faucet: builds, signs (RLP + Keccak-256 + secp256k1), and submits a Transfer from a funded key.
 - `hub/signature_keys.rs` — secp256k1 keypair/sign/verify + `validate_public_key` (accepts 40-char address or 130-char uncompressed pubkey, optional 0x).
 - `hub/referrer.rs` — `configured_referrer()`: trims config value, empty → `None`.
 - `hub/configuration.rs` — `AppConfig` + loading. `hub/metric.rs` — Prometheus on a separate Axum server. `hub/tracing.rs` / `hub/seq.rs` — tracing to stdout + Seq.
@@ -52,13 +51,9 @@ Rust GraphQL bridge between client apps and clutch-node. Actix-web serves HTTP/W
 ## Config
 
 - `config/<env>.toml` selected by `--env` (default `default`); only `config/default.toml` is checked in. Env overrides use the `APP_` prefix (e.g. `APP_JWT_SECRET`, `APP_CLUTCH_NODE_WS_URL`); `.env` is loaded via dotenv.
-- Key settings (`AppConfig` in `src/hub/configuration.rs`): `ws_addr` (main HTTP/GraphQL bind), `clutch_node_ws_url`, `jwt_secret`, `jwt_expiration_hours`, `serve_metric_addr`, `seq_url`/`seq_api_key`, `log_level`, `faucet_enabled`/`faucet_private_key`/`faucet_amount_clt`, `default_ride_request_referrer`/`default_ride_offer_referrer`.
+- Key settings (`AppConfig` in `src/hub/configuration.rs`): `ws_addr` (main HTTP/GraphQL bind), `clutch_node_ws_url`, `jwt_secret`, `jwt_expiration_hours`, `serve_metric_addr`, `seq_url`/`seq_api_key`, `log_level`, `allowed_origins`, `default_ride_request_referrer`/`default_ride_offer_referrer`.
 - Ports: GraphQL/HTTP on **3000**, metrics on **9090** — the local `config/default.toml` and the Docker/deploy config (`clutch-deploy/config/api/default.toml`, mounted over `/app/config`) agree on these.
 - `env.example` documents the working `APP_*` override names (e.g. `APP_JWT_SECRET`); copy it to `.env` and adjust.
-
-## Faucet
-
-`POST /faucet {"address": "0x..."}` (server.rs → faucet.rs). Requires `faucet_enabled = true` and a funded `faucet_private_key`. It checks the faucet balance, fetches the nonce, RLP-encodes and signs a Transfer exactly matching the SDK's `signTransaction` encoding (Keccak-256 over the *UTF-8 hex string* of the unsigned-tx hash — see `sign_transfer_raw_transaction`), and submits `send_raw_transaction`. The default faucet key's address must be funded in the node genesis (`0xdeb4cfb63db134698e1879ea24904df074726cc0`).
 
 ## Gotchas / conventions
 
