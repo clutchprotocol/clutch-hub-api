@@ -3,10 +3,6 @@ use dotenv::dotenv;
 use serde::Deserialize;
 use tracing::info;
 
-fn default_faucet_amount() -> u64 {
-    1000
-}
-
 fn default_allowed_origins() -> String {
     "*".to_string()
 }
@@ -25,15 +21,6 @@ pub struct AppConfig {
     /// `https://app.example.com,https://app-stage.example.com`).
     #[serde(default = "default_allowed_origins")]
     pub allowed_origins: String,
-    /// When true and `faucet_private_key` is set, POST /faucet is enabled (test networks only).
-    #[serde(default)]
-    pub faucet_enabled: bool,
-    /// Hex-encoded secp256k1 private key (64 hex chars, optional 0x). Must hold CLT on-chain.
-    #[serde(default)]
-    pub faucet_private_key: String,
-    /// Amount of CLT to send per faucet request.
-    #[serde(default = "default_faucet_amount")]
-    pub faucet_amount_clt: u64,
     /// Default referrer address for RideRequest when the client omits `referrer` (empty = none).
     #[serde(default)]
     pub default_ride_request_referrer: String,
@@ -55,9 +42,6 @@ impl std::fmt::Debug for AppConfig {
             .field("jwt_secret", &"[redacted]")
             .field("jwt_expiration_hours", &self.jwt_expiration_hours)
             .field("allowed_origins", &self.allowed_origins)
-            .field("faucet_enabled", &self.faucet_enabled)
-            .field("faucet_private_key", &"[redacted]")
-            .field("faucet_amount_clt", &self.faucet_amount_clt)
             .field(
                 "default_ride_request_referrer",
                 &self.default_ride_request_referrer,

@@ -12,16 +12,6 @@ jwt_expiration_hours = 6
 # "*" for local dev; clutch-deploy overrides via APP_ALLOWED_ORIGINS for staging/production.
 allowed_origins = "*"
 
-# Testnet faucet (POST /faucet with {"address":"0x..."}). Enable for local dev; disable in production.
-faucet_enabled = true
-# Use same key as deploy so faucet address matches genesis-funded account (0xdeb4cfb63db134698e1879ea24904df074726cc0)
-faucet_private_key = "d2c446110cfcecbdf05b2be528e72483de5b6f7ef9c7856df2f81f48e9f2748f"
-# $100 at the peg of 1 USD = 1,000,000 CLT. Was 1000, which the peg change silently turned
-# into $0.001 - exactly one tx_fee, so a funded account could send one zero-value
-# transaction and reach zero without ever affording a ride. Rate limits (per-IP 30s,
-# per-address 1h) bound the cost of the larger drip.
-faucet_amount_clt = 100000000
-
 # App-developer referrers injected by Hub API (clients must not pass referrer).
 default_ride_request_referrer = "0x0912514c7cc3eec2b2dab4e1d150c4b5eaee5a6f"
 default_ride_offer_referrer = "0x0912514c7cc3eec2b2dab4e1d150c4b5eaee5a6f"
